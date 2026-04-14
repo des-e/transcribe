@@ -59,12 +59,25 @@ def check_for_updates():
     if not shutil.which("git"):
         return
 
+    # Проверяем что git реально работает (xcrun может быть сломан)
+    try:
+        test = subprocess.run(["git", "--version"], capture_output=True, timeout=5)
+        if test.returncode != 0:
+            print("[~] git недоступен — пропускаю проверку обновлений")
+            return
+    except Exception:
+        print("[~] git недоступен — пропускаю проверку обновлений")
+        return
+
     # Должны быть в git-репозитории
-    r = subprocess.run(
-        ["git", "rev-parse", "--git-dir"],
-        cwd=HERE, capture_output=True,
-    )
-    if r.returncode != 0:
+    try:
+        r = subprocess.run(
+            ["git", "rev-parse", "--git-dir"],
+            cwd=HERE, capture_output=True,
+        )
+        if r.returncode != 0:
+            return
+    except Exception:
         return
 
     print("[→] Проверяю обновления...")
@@ -133,11 +146,19 @@ def ffmpeg_available() -> bool:
     try:
         subprocess.run(["ffmpeg", "-version"], capture_output=True, check=True)
         return True
-    except (FileNotFoundError, subprocess.CalledProcessError):
+    except Exception:
         return False
 
 
 def handle_ffmpeg():
+    try:
+        _handle_ffmpeg()
+    except Exception as e:
+        print(f"[~] Не удалось проверить ffmpeg ({e})")
+        print("    Видеофайлы могут не работать. Аудиофайлы (MP3, WAV, M4A) работают без ffmpeg.")
+
+
+def _handle_ffmpeg():
     if ffmpeg_available():
         print("[✓] ffmpeg найден")
         return
@@ -227,6 +248,14 @@ def model_is_cached(model_name: str) -> bool:
 
 def warm_up_model():
     """Скачивает модель при первом запуске, чтобы первая транскрибация не висела."""
+    try:
+        _warm_up_model()
+    except Exception as e:
+        print(f"[~] Не удалось предзагрузить модель ({e})")
+        print("    Модель скачается при первой транскрибации.")
+
+
+def _warm_up_model():
     if model_is_cached(DEFAULT_MODEL):
         backend = "MLX" if IS_APPLE_SILICON else "faster-whisper"
         print(f"[✓] Модель «{DEFAULT_MODEL}» ({backend}) уже загружена")

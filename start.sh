@@ -14,19 +14,25 @@ trap 'echo ""; read -r -p "Нажми Enter для закрытия..." _' EXIT
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 cd "$SCRIPT_DIR" || { echo "[!] Не удалось открыть папку: $SCRIPT_DIR"; exit 1; }
 
-# ── Проверка Xcode Command Line Tools (частая проблема на M-чипах) ──────────
-if command -v xcrun &>/dev/null; then
-    if ! xcrun --version &>/dev/null 2>&1; then
+# ── Проверка git ──────────────────────────────────────────────────────────────
+# Тестируем git напрямую — если xcrun повреждён, git падает с ошибкой архитектуры
+if command -v git &>/dev/null; then
+    if ! git --version &>/dev/null 2>&1; then
         echo ""
-        echo "  [!] Xcode Command Line Tools повреждены."
-        echo "      Частая причина: перенос с Intel Mac на M-чип (несовместимая архитектура)."
+        echo "  [!] git не работает."
+        echo "      Вероятная причина: Xcode Command Line Tools несовместимы с архитектурой (Intel → M-чип)."
         echo ""
-        echo "  Исправление — выполни в терминале:"
+        echo "  ── Исправление ────────────────────────────────────────────"
         echo ""
         echo "    sudo rm -rf /Library/Developer/CommandLineTools"
         echo "    xcode-select --install"
         echo ""
         echo "  После установки запусти start.sh снова."
+        echo ""
+        echo "  ── Альтернатива (без git) ─────────────────────────────────"
+        echo ""
+        echo "  Скачай архив и распакуй вручную:"
+        echo "    https://github.com/des-e/transcribe/archive/refs/heads/master.zip"
         echo ""
         read -r -p "Нажми Enter для закрытия..." _
         exit 1
