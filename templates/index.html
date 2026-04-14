@@ -93,8 +93,24 @@
   <!-- Body -->
   <div class="flex flex-1 overflow-hidden" style="height: calc(100vh - 3.5rem)">
 
-    <!-- Center: Transcript + Player -->
+    <!-- Center: Player + Transcript -->
     <section class="flex-1 flex flex-col overflow-hidden bg-bg">
+
+      <!-- Audio player (сверху) -->
+      <div id="audio-player" class="hidden border-b border-border/10 bg-sidebar px-12 py-3.5 shrink-0">
+        <audio id="audio-el" preload="metadata"></audio>
+        <div class="max-w-3xl mx-auto flex items-center gap-4">
+          <button id="play-btn" onclick="togglePlay()"
+                  class="w-7 h-7 flex items-center justify-center rounded hover:bg-surface/60 transition-colors shrink-0">
+            <span class="material-symbols-outlined icon-fill text-accent" style="font-size:20px">play_arrow</span>
+          </button>
+          <span id="audio-time" class="text-[11px] font-inter text-muted/35 shrink-0 tabular-nums w-24">0:00 / 0:00</span>
+          <div id="progress-track" class="flex-1 h-px bg-border/25 relative cursor-pointer" onclick="seekAudio(event)">
+            <div id="progress-fill" class="absolute left-0 top-0 h-full bg-accent/50 pointer-events-none" style="width:0%"></div>
+            <div id="progress-thumb" class="absolute top-1/2 -translate-y-1/2 w-2.5 h-2.5 rounded-full bg-accent opacity-0 pointer-events-none" style="left:0%"></div>
+          </div>
+        </div>
+      </div>
 
       <!-- Scrollable transcript -->
       <div class="flex-1 overflow-y-auto scrollbar" id="transcript-area">
@@ -111,22 +127,6 @@
           <!-- Segments -->
           <div id="segments-container" class="hidden space-y-1 pb-10"></div>
 
-        </div>
-      </div>
-
-      <!-- Audio player -->
-      <div id="audio-player" class="hidden border-t border-border/10 bg-sidebar px-12 py-3.5 shrink-0">
-        <audio id="audio-el" preload="metadata"></audio>
-        <div class="max-w-3xl mx-auto flex items-center gap-4">
-          <button id="play-btn" onclick="togglePlay()"
-                  class="w-7 h-7 flex items-center justify-center rounded hover:bg-surface/60 transition-colors shrink-0">
-            <span class="material-symbols-outlined icon-fill text-accent" style="font-size:20px">play_arrow</span>
-          </button>
-          <span id="audio-time" class="text-[11px] font-inter text-muted/35 shrink-0 tabular-nums w-24">0:00 / 0:00</span>
-          <div id="progress-track" class="flex-1 h-px bg-border/25 relative cursor-pointer" onclick="seekAudio(event)">
-            <div id="progress-fill" class="absolute left-0 top-0 h-full bg-accent/50 pointer-events-none" style="width:0%"></div>
-            <div id="progress-thumb" class="absolute top-1/2 -translate-y-1/2 w-2.5 h-2.5 rounded-full bg-accent opacity-0 pointer-events-none" style="left:0%"></div>
-          </div>
         </div>
       </div>
 
