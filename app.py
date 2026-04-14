@@ -278,10 +278,30 @@ def _run_mlx(path, model, lang, t_start, loop, queue, cancel_event):
 
     mlx_repo = MLX_MODELS.get(model, f"mlx-community/whisper-{model}-mlx")
 
-    if _mlx_model_cached(model):
-        _put(loop, queue, {"type": "status", "message": f"Транскрибирую (Apple Silicon)..."})
-    else:
-        _put(loop, queue, {"type": "status", "message": f"Скачиваю модель «{model}» (~800 MB, только первый раз)..."})
+    cached = _mlx_model_cached(model)
+    t_begin = time.time()
+
+    # Периодически обновляем статус — без этого UI выглядит замороженным
+    # (MLX возвращает все сегменты разом, без стриминга)
+    _timer: list = [None]
+
+    def _tick():
+        if cancel_event.is_set():
+            return
+        elapsed = time.time() - t_begin
+        m, s = divmod(int(elapsed), 60)
+        tick_str = f"{m}:{s:02d}" if m else f"{s}с"
+        if cached:
+            msg = f"Транскрибирую... {tick_str}"
+        else:
+            msg = f"Скачиваю модель «{model}» (~800 MB)... {tick_str}"
+        _put(loop, queue, {"type": "status", "message": msg})
+        t = threading.Timer(3.0, _tick)
+        t.daemon = True
+        _timer[0] = t
+        t.start()
+
+    _tick()
 
     result = mlx_whisper.transcribe(
         path,
@@ -289,6 +309,9 @@ def _run_mlx(path, model, lang, t_start, loop, queue, cancel_event):
         language=lang,
         verbose=False,
     )
+
+    if _timer[0]:
+        _timer[0].cancel()
 
     segments = result.get("segments", [])
     count = 0
