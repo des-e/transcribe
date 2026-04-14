@@ -18,9 +18,8 @@ from pathlib import Path
 HERE   = Path(__file__).parent
 SYSTEM = platform.system()  # "Windows", "Darwin", "Linux"
 
-# Доступ к репозиторию (read-only)
-_rs = "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"
-_ro = f"https://{_rs}@github.com/des-e/transcribe.git"
+# Репозиторий для автообновления
+_ro = "https://github.com/des-e/transcribe.git"
 
 
 # ──────────────────────────────────────────────────────────────────────────────
