@@ -191,6 +191,55 @@ def handle_ffmpeg():
 
 
 # ──────────────────────────────────────────────────────────────────────────────
+# Предзагрузка модели Whisper
+# ──────────────────────────────────────────────────────────────────────────────
+
+DEFAULT_MODEL = "medium"
+
+def model_is_cached(model_name: str) -> bool:
+    """Проверяет, скачана ли модель в кеш Hugging Face."""
+    cache_dir = Path.home() / ".cache" / "huggingface" / "hub"
+    model_dir = cache_dir / f"models--Systran--faster-whisper-{model_name}"
+    return model_dir.exists() and any(model_dir.iterdir())
+
+
+def warm_up_model():
+    """Скачивает модель при первом запуске, чтобы первая транскрибация не висела."""
+    if model_is_cached(DEFAULT_MODEL):
+        print(f"[✓] Модель «{DEFAULT_MODEL}» уже загружена")
+        return
+
+    print()
+    print(f"[→] Модель «{DEFAULT_MODEL}» не найдена — скачиваю (~1.5 GB).")
+    print("    Это нужно сделать один раз. Дальнейшие запуски будут быстрыми.")
+    print()
+
+    uv = find_uv()
+    if not uv:
+        print("[~] uv не найден — пропускаю предзагрузку модели")
+        return
+
+    script = (
+        "import os; "
+        "os.environ['HF_HUB_VERBOSITY'] = 'error'; "
+        f"from faster_whisper import WhisperModel; "
+        f"print('[→] Загружаю...'); "
+        f"WhisperModel('{DEFAULT_MODEL}', device='cpu', compute_type='int8'); "
+        f"print('[✓] Модель загружена!')"
+    )
+
+    result = subprocess.run(
+        [uv, "run", "--python", "3.11", "-c", script],
+        cwd=HERE,
+    )
+
+    if result.returncode != 0:
+        print("[~] Не удалось скачать модель — продолжаю без предзагрузки.")
+        print("    Модель скачается при первой транскрибации.")
+    print()
+
+
+# ──────────────────────────────────────────────────────────────────────────────
 # Запуск app.py через uv
 # ──────────────────────────────────────────────────────────────────────────────
 
@@ -229,4 +278,5 @@ if __name__ == "__main__":
     print(f"[✓] Python {sys.version.split()[0]}")
     check_for_updates()
     handle_ffmpeg()
+    warm_up_model()
     run_app()
