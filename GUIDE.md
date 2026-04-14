@@ -76,6 +76,17 @@ kill -9 $(lsof -t -i :8000) 2>/dev/null
 bash ~/transcribe/make_app.sh
 ```
 
+**Ошибка при git clone: `xcrun ... incompatible architecture`**
+
+Возникает на M-чипах с устаревшими Xcode Command Line Tools (чаще всего после переноса с Intel Mac).
+
+```bash
+sudo rm -rf /Library/Developer/CommandLineTools
+xcode-select --install
+```
+
+После установки повторить `git clone`.
+
 ---
 
 ---

@@ -14,6 +14,25 @@ trap 'echo ""; read -r -p "Нажми Enter для закрытия..." _' EXIT
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 cd "$SCRIPT_DIR" || { echo "[!] Не удалось открыть папку: $SCRIPT_DIR"; exit 1; }
 
+# ── Проверка Xcode Command Line Tools (частая проблема на M-чипах) ──────────
+if command -v xcrun &>/dev/null; then
+    if ! xcrun --version &>/dev/null 2>&1; then
+        echo ""
+        echo "  [!] Xcode Command Line Tools повреждены."
+        echo "      Частая причина: перенос с Intel Mac на M-чип (несовместимая архитектура)."
+        echo ""
+        echo "  Исправление — выполни в терминале:"
+        echo ""
+        echo "    sudo rm -rf /Library/Developer/CommandLineTools"
+        echo "    xcode-select --install"
+        echo ""
+        echo "  После установки запусти start.sh снова."
+        echo ""
+        read -r -p "Нажми Enter для закрытия..." _
+        exit 1
+    fi
+fi
+
 echo ""
 echo "  ╔══════════════════════════════════╗"
 echo "  ║   Transcribe — запуск            ║"

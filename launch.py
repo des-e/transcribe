@@ -169,7 +169,7 @@ def handle_ffmpeg():
         print("    Вариант 2 — готовый бинарник (без Homebrew):")
         print("      https://evermeet.cx/ffmpeg/  → скачать → распаковать → переместить в /usr/local/bin/")
         print()
-        brew_ok = subprocess.run(["brew", "--version"], capture_output=True).returncode == 0
+        brew_ok = bool(shutil.which("brew"))
         if brew_ok:
             if input("    Установить через Homebrew сейчас? [y/N]: ").strip().lower() == "y":
                 if subprocess.run(["brew", "install", "ffmpeg"]).returncode == 0:
