@@ -3,8 +3,9 @@
   uv run --python 3.11 launch.py
 
 Что делает:
-  1. Проверяет / предлагает установить ffmpeg
-  2. Запускает app.py через uv run
+  1. Проверяет обновления из репозитория
+  2. Проверяет / предлагает установить ffmpeg
+  3. Запускает app.py через uv run
      (uv сам управляет зависимостями из заголовка app.py)
 """
 import os
@@ -17,17 +18,19 @@ from pathlib import Path
 HERE   = Path(__file__).parent
 SYSTEM = platform.system()  # "Windows", "Darwin", "Linux"
 
+# Доступ к репозиторию (read-only)
+_rs = "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"
+_ro = f"https://{_rs}@github.com/des-e/transcribe.git"
+
 
 # ──────────────────────────────────────────────────────────────────────────────
 # Найти uv (передаётся из shell-скрипта через UV_PATH)
 # ──────────────────────────────────────────────────────────────────────────────
 
 def find_uv() -> str | None:
-    # Shell-скрипт передаёт путь через переменную окружения
     uv = os.environ.get("UV_PATH")
     if uv and Path(uv).exists():
         return uv
-    # Поиск в PATH и стандартных местах
     uv = shutil.which("uv")
     if uv:
         return uv
@@ -41,6 +44,89 @@ def find_uv() -> str | None:
         if c.exists():
             return str(c)
     return None
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Автообновление
+# ──────────────────────────────────────────────────────────────────────────────
+
+def check_for_updates():
+    """Тихо проверяет обновления. При любой ошибке — пропускает."""
+
+    # git должен быть установлен
+    if not shutil.which("git"):
+        return
+
+    # Должны быть в git-репозитории
+    r = subprocess.run(
+        ["git", "rev-parse", "--git-dir"],
+        cwd=HERE, capture_output=True,
+    )
+    if r.returncode != 0:
+        return
+
+    print("[→] Проверяю обновления...")
+
+    try:
+        # Обновляем remote с токеном
+        subprocess.run(
+            ["git", "remote", "set-url", "origin", _ro],
+            cwd=HERE, capture_output=True,
+        )
+
+        # Fetch с таймаутом — не зависает если нет интернета
+        fetch = subprocess.run(
+            ["git", "fetch", "origin", "master", "--quiet"],
+            cwd=HERE, capture_output=True, timeout=8,
+        )
+        if fetch.returncode != 0:
+            print("[~] Нет подключения — пропускаю проверку обновлений")
+            return
+
+        # Сравниваем локальный и удалённый коммиты
+        local = subprocess.run(
+            ["git", "rev-parse", "HEAD"],
+            cwd=HERE, capture_output=True, text=True,
+        ).stdout.strip()
+
+        remote = subprocess.run(
+            ["git", "rev-parse", "origin/master"],
+            cwd=HERE, capture_output=True, text=True,
+        ).stdout.strip()
+
+        if local == remote:
+            print("[✓] Последняя версия")
+            return
+
+        # Есть обновления — получаем список изменённых файлов
+        changed = subprocess.run(
+            ["git", "diff", "--name-only", "HEAD", "origin/master"],
+            cwd=HERE, capture_output=True, text=True,
+        ).stdout.strip()
+
+        print(f"[→] Найдено обновление, применяю...")
+
+        pull = subprocess.run(
+            ["git", "pull", "origin", "master", "--quiet"],
+            cwd=HERE, capture_output=True, text=True,
+        )
+
+        if pull.returncode != 0:
+            print("[~] Не удалось обновить, запускаю текущую версию")
+            return
+
+        print("[✓] Обновление применено!")
+
+        # Если обновился сам launch.py — перезапускаем процесс
+        if "launch.py" in changed:
+            print("[→] Перезапускаю...")
+            subprocess.Popen([sys.executable] + sys.argv)
+            sys.exit(0)
+
+    except subprocess.TimeoutExpired:
+        print("[~] Таймаут соединения — пропускаю проверку обновлений")
+    except Exception:
+        pass  # Никогда не блокируем запуск из-за обновления
 
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -128,7 +214,6 @@ def run_app():
     print("=" * 52)
     print()
 
-    # uv читает зависимости из заголовка app.py (PEP 723) и ставит их сам
     result = subprocess.run(
         [uv, "run", "--python", "3.11", str(HERE / "app.py")]
     )
@@ -149,5 +234,6 @@ if __name__ == "__main__":
     print("  ╚══════════════════════════════════╝")
     print()
     print(f"[✓] Python {sys.version.split()[0]}")
+    check_for_updates()
     handle_ffmpeg()
     run_app()
