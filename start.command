@@ -4,10 +4,22 @@
 #
 #  Первый запуск: правый клик → Открыть → Открыть
 #  Далее: двойной клик
-#
-#  Не требует установленного Python — uv скачает сам.
 # ──────────────────────────────────────────────────────────────
-cd "$(dirname "$0")"
+
+# Держать окно открытым при любом завершении
+trap 'echo ""; read -r -p "Нажми Enter для закрытия..." _' EXIT
+
+# Перейти в папку со скриптом
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+cd "$SCRIPT_DIR" || { echo "[!] Не удалось открыть папку: $SCRIPT_DIR"; exit 1; }
+
+echo ""
+echo "  ╔══════════════════════════════════╗"
+echo "  ║   Transcribe — запуск            ║"
+echo "  ╚══════════════════════════════════╝"
+echo ""
+echo "  Папка: $SCRIPT_DIR"
+echo ""
 
 # ── Найти uv ──────────────────────────────────────────────────
 UV=""
@@ -21,35 +33,43 @@ fi
 
 # ── Установить uv если не найден ──────────────────────────────
 if [ -z "$UV" ]; then
-    echo "[→] Устанавливаю uv..."
-    if command -v curl &>/dev/null; then
-        curl -LsSf https://astral.sh/uv/install.sh | sh
-    else
-        # curl нет — предложить Homebrew
-        osascript -e 'display alert "Нужен curl или Homebrew" message "Установи Homebrew с brew.sh, затем запусти снова." as warning'
-        echo "[!] Установи Homebrew: https://brew.sh"
-        read -p "Нажми Enter для закрытия..."
+    echo "[→] Устанавливаю uv (менеджер пакетов)..."
+    if ! command -v curl &>/dev/null; then
+        echo "[!] curl не найден. Установи Homebrew: https://brew.sh"
         exit 1
     fi
+    curl -LsSf https://astral.sh/uv/install.sh | sh
+    # Перезагрузить PATH после установки
+    export PATH="$HOME/.local/bin:$HOME/.cargo/bin:$PATH"
     UV="$HOME/.local/bin/uv"
 fi
 
 if [ ! -f "$UV" ]; then
-    echo "[!] Не удалось найти uv после установки."
-    echo "    Закрой это окно и запусти start.command снова."
-    read -p "Нажми Enter для закрытия..."
+    echo "[!] uv не найден после установки."
+    echo "    Закрой окно и запусти start.command снова."
     exit 1
 fi
 
 echo "[✓] uv: $UV"
 
 # ── Запустить launch.py
-#    uv сам скачает Python 3.11 если его нет на компьютере
+#    uv сам скачает Python 3.11 если его нет
 # ─────────────────────────────────────────────────────────────
 export UV_PATH="$UV"
-"$UV" run --python 3.11 "$(dirname "$0")/launch.py"
+echo "[→] Запускаю..."
+echo ""
+
+# Отключаем trap перед запуском — сервер сам держит окно открытым
+trap - EXIT
+
+"$UV" run --python 3.11 "$SCRIPT_DIR/launch.py"
 EXIT_CODE=$?
 
-if [ $EXIT_CODE -ne 0 ]; then
-    read -p "Нажми Enter для закрытия..."
+# Если сервер завершился — показать сообщение и подождать
+echo ""
+if [ $EXIT_CODE -eq 0 ]; then
+    echo "Сервер остановлен."
+else
+    echo "[!] Завершено с ошибкой (код $EXIT_CODE)"
 fi
+read -r -p "Нажми Enter для закрытия..." _
