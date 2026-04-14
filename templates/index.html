@@ -482,34 +482,30 @@ function stopTranscription() {
 function appendSegment(seg) {
   const container = document.getElementById('segments-container');
   const div = document.createElement('div');
-  div.className = 'group flex gap-8 items-start';
+  div.className = 'group flex gap-4 items-start';
   div.innerHTML = `
+    <button class="copy-btn mt-0.5 p-1.5 rounded shrink-0
+                   opacity-0 group-hover:opacity-100 transition-all
+                   text-muted/40 hover:text-primary hover:bg-surface
+                   border border-transparent hover:border-border/20" title="Копировать">
+      <span class="material-symbols-outlined text-sm">content_copy</span>
+    </button>
     <div class="w-20 shrink-0 pt-px">
       <span class="text-[10px] font-inter font-medium text-muted/35 tracking-widest block">${seg.start}</span>
       <span class="text-[10px] font-inter text-muted/20 block mt-0.5">${seg.end}</span>
     </div>
     <div class="flex-1 min-w-0">
       <p class="text-[15px] leading-relaxed font-light text-primary/85 selection:bg-accent/20">${escHtml(seg.text)}</p>
-      <button class="copy-btn mt-2 flex items-center gap-1.5 px-2.5 py-1 rounded
-                     opacity-0 group-hover:opacity-100 transition-all
-                     text-muted/40 hover:text-primary hover:bg-surface
-                     border border-transparent hover:border-border/20">
-        <span class="material-symbols-outlined text-sm">content_copy</span>
-        <span class="text-[10px] font-inter font-medium">Копировать</span>
-      </button>
     </div>`;
 
   div.querySelector('.copy-btn').addEventListener('click', () => {
     navigator.clipboard.writeText(seg.text).then(() => {
       const btn  = div.querySelector('.copy-btn');
       const icon = btn.querySelector('.material-symbols-outlined');
-      const lbl  = btn.querySelector('span:last-child');
       icon.textContent = 'check';
-      lbl.textContent  = 'Скопировано';
       btn.style.color  = '#6B7D73';
       setTimeout(() => {
         icon.textContent = 'content_copy';
-        lbl.textContent  = 'Копировать';
         btn.style.color  = '';
       }, 1500);
     });
