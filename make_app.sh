@@ -5,83 +5,43 @@
 #  Использование (один раз после клонирования):
 #    bash make_app.sh
 #
-#  Результат: Transcribe.app в папке проекта.
-#  Перетащи его в Dock — и запускай одним кликом навсегда.
+#  Результат: Transcribe.app рядом с этим скриптом.
+#  Перетащи его в Dock — запускай одним кликом.
 # ──────────────────────────────────────────────────────────────
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 APP_PATH="$SCRIPT_DIR/Transcribe.app"
 
 echo ""
-echo "  ╔══════════════════════════════════╗"
-echo "  ║   Создаю Transcribe.app          ║"
-echo "  ╚══════════════════════════════════╝"
-echo ""
+echo "  Создаю Transcribe.app..."
 
-# Убрать старую версию
 rm -rf "$APP_PATH"
 
-# Создать структуру .app
-mkdir -p "$APP_PATH/Contents/MacOS"
-mkdir -p "$APP_PATH/Contents/Resources"
+# osacompile — встроенный инструмент macOS, компилирует AppleScript в .app
+osacompile -o "$APP_PATH" << 'APPLESCRIPT'
+-- Папка проекта = папка где лежит Transcribe.app
+set appPath to POSIX path of (path to me)
+set projectPath to do shell script "dirname " & quoted form of appPath
+set startScript to projectPath & "/start.sh"
 
-# ── Info.plist ────────────────────────────────────────────────
-cat > "$APP_PATH/Contents/Info.plist" << 'PLIST'
-<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
-  "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<plist version="1.0">
-<dict>
-    <key>CFBundleExecutable</key>    <string>Transcribe</string>
-    <key>CFBundleIdentifier</key>    <string>com.transcribe.launcher</string>
-    <key>CFBundleName</key>          <string>Transcribe</string>
-    <key>CFBundleDisplayName</key>   <string>Transcribe</string>
-    <key>CFBundleVersion</key>       <string>1.0</string>
-    <key>CFBundlePackageType</key>   <string>APPL</string>
-    <key>CFBundleSignature</key>     <string>????</string>
-    <key>LSMinimumSystemVersion</key><string>11.0</string>
-</dict>
-</plist>
-PLIST
+-- Снять карантин и выставить права
+do shell script "chmod +x " & quoted form of startScript
+do shell script "xattr -d com.apple.quarantine " & quoted form of startScript & " 2>/dev/null; true"
 
-# ── Исполняемый файл внутри .app ──────────────────────────────
-# Находит папку проекта относительно себя (3 уровня вверх от Contents/MacOS/)
-# и открывает Terminal с запуском start.sh
-cat > "$APP_PATH/Contents/MacOS/Transcribe" << 'LAUNCHER'
-#!/bin/bash
-PROJECT="$(cd "$(dirname "$0")/../../.." && pwd)"
-START="$PROJECT/start.sh"
-
-if [ ! -f "$START" ]; then
-    osascript -e "display alert \"Transcribe\" message \"Не найден start.sh в папке:\n$PROJECT\" as warning"
-    exit 1
-fi
-
-# Снять карантин и выставить права
-xattr -d com.apple.quarantine "$START" 2>/dev/null
-chmod +x "$START"
-
-# Открыть Terminal и запустить
-osascript << OSASCRIPT
+-- Открыть Terminal и запустить
 tell application "Terminal"
     activate
-    do script "bash '$START'"
+    do script "bash " & quoted form of startScript
 end tell
-OSASCRIPT
-LAUNCHER
+APPLESCRIPT
 
-chmod +x "$APP_PATH/Contents/MacOS/Transcribe"
-
-# Снять карантин с самого .app
-xattr -cr "$APP_PATH" 2>/dev/null
-
-echo "[✓] Готово!"
-echo ""
-echo "  Transcribe.app создан в папке проекта."
-echo ""
-echo "  Что дальше:"
-echo "  1. Перетащи Transcribe.app в Dock — запуск одним кликом"
-echo "  2. Или двойной клик прямо из Finder в любой момент"
-echo ""
-echo "  При первом запуске macOS спросит разрешение — нажми 'Открыть'"
-echo ""
+if [ $? -eq 0 ]; then
+    xattr -cr "$APP_PATH" 2>/dev/null
+    echo "  [✓] Готово!"
+    echo ""
+    echo "  Transcribe.app создан рядом со скриптом."
+    echo "  Перетащи его в Dock — и запускай одним кликом."
+    echo ""
+else
+    echo "  [!] Ошибка. Убедись что запускаешь на Mac."
+fi
