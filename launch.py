@@ -282,9 +282,15 @@ def run_app():
     print("=" * 52)
     print()
 
-    result = subprocess.run(
-        [uv, "run", "--python", "3.11", str(HERE / "app.py")]
-    )
+    cmd = [uv, "run", "--python", "3.11", str(HERE / "app.py")]
+
+    # На Mac: caffeinate не даёт системе уходить в сон во время транскрибации
+    if SYSTEM == "Darwin" and shutil.which("caffeinate"):
+        print("[✓] Режим без сна активен (caffeinate)")
+        print()
+        cmd = ["caffeinate", "-i"] + cmd
+
+    result = subprocess.run(cmd)
     sys.exit(result.returncode)
 
 
