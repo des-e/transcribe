@@ -208,16 +208,18 @@ MLX_MODELS = {
 
 
 def model_is_cached(model_name: str) -> bool:
-    """Проверяет, скачана ли модель в кеш Hugging Face."""
+    """Проверяет, полностью ли скачана модель (по размеру blobs)."""
     hf_home = Path(os.environ.get("HF_HOME", Path.home() / ".cache" / "huggingface"))
-    cache_dir = hf_home / "hub"
+    hub = hf_home / "hub"
     if IS_APPLE_SILICON:
-        org = "mlx-community"
         repo = f"whisper-{model_name}-mlx" if model_name != "large" else "whisper-large-v3-mlx"
-        model_dir = cache_dir / f"models--{org}--{repo}"
+        blobs = hub / f"models--mlx-community--{repo}" / "blobs"
     else:
-        model_dir = cache_dir / f"models--Systran--faster-whisper-{model_name}"
-    return model_dir.exists() and any(model_dir.iterdir())
+        blobs = hub / f"models--Systran--faster-whisper-{model_name}" / "blobs"
+    if not blobs.exists():
+        return False
+    total = sum(f.stat().st_size for f in blobs.iterdir() if f.is_file())
+    return total > 100 * 1024 * 1024  # хотя бы 100 MB
 
 
 def warm_up_model():

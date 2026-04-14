@@ -20,6 +20,7 @@
 """
 import os
 os.environ.setdefault("HF_HUB_VERBOSITY", "error")
+os.environ.setdefault("HF_HUB_DISABLE_PROGRESS_BARS", "1")
 os.environ.setdefault("TOKENIZERS_PARALLELISM", "false")
 
 import asyncio
@@ -261,11 +262,26 @@ async def stream_transcription(
 # Бэкенд: MLX Whisper (Apple Silicon)
 # ──────────────────────────────────────────────────────────────────────────────
 
+def _mlx_model_cached(model_name: str) -> bool:
+    """Проверяет что MLX модель полностью скачана (проверяет размер blobs)."""
+    hf_home = Path(os.environ.get("HF_HOME", Path.home() / ".cache" / "huggingface"))
+    repo = f"whisper-{model_name}-mlx" if model_name != "large" else "whisper-large-v3-mlx"
+    blobs_dir = hf_home / "hub" / f"models--mlx-community--{repo}" / "blobs"
+    if not blobs_dir.exists():
+        return False
+    total = sum(f.stat().st_size for f in blobs_dir.iterdir() if f.is_file())
+    return total > 100 * 1024 * 1024  # хотя бы 100 MB
+
+
 def _run_mlx(path, model, lang, t_start, loop, queue, cancel_event):
     import mlx_whisper
 
     mlx_repo = MLX_MODELS.get(model, f"mlx-community/whisper-{model}-mlx")
-    _put(loop, queue, {"type": "status", "message": f"Транскрибирую (Apple {model})..."})
+
+    if _mlx_model_cached(model):
+        _put(loop, queue, {"type": "status", "message": f"Транскрибирую (Apple Silicon)..."})
+    else:
+        _put(loop, queue, {"type": "status", "message": f"Скачиваю модель «{model}» (~800 MB, только первый раз)..."})
 
     result = mlx_whisper.transcribe(
         path,
