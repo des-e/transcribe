@@ -91,7 +91,7 @@
   <div class="flex flex-1 overflow-hidden" style="height: calc(100vh - 3.5rem)">
 
     <!-- Center: Transcript -->
-    <section class="flex-1 overflow-y-auto scrollbar bg-bg">
+    <section class="flex-1 overflow-y-auto scrollbar bg-bg" id="transcript-area">
       <div class="px-12 py-10 max-w-3xl mx-auto min-h-full flex flex-col">
 
         <!-- Empty state -->
@@ -482,7 +482,7 @@ function stopTranscription() {
 function appendSegment(seg) {
   const container = document.getElementById('segments-container');
   const div = document.createElement('div');
-  div.className = 'group relative flex gap-8 items-start';
+  div.className = 'group flex gap-8 items-start';
   div.innerHTML = `
     <div class="w-20 shrink-0 pt-px">
       <span class="text-[10px] font-inter font-medium text-muted/35 tracking-widest block">${seg.start}</span>
@@ -490,23 +490,36 @@ function appendSegment(seg) {
     </div>
     <div class="flex-1 min-w-0">
       <p class="text-[15px] leading-relaxed font-light text-primary/85 selection:bg-accent/20">${escHtml(seg.text)}</p>
-    </div>
-    <button class="copy-btn opacity-0 group-hover:opacity-100 transition-opacity
-                   p-1.5 hover:bg-surface rounded mt-px shrink-0" title="Копировать">
-      <span class="material-symbols-outlined text-sm text-muted/40">content_copy</span>
-    </button>`;
+      <button class="copy-btn mt-2 flex items-center gap-1.5 px-2.5 py-1 rounded
+                     opacity-0 group-hover:opacity-100 transition-all
+                     text-muted/40 hover:text-primary hover:bg-surface
+                     border border-transparent hover:border-border/20">
+        <span class="material-symbols-outlined text-sm">content_copy</span>
+        <span class="text-[10px] font-inter font-medium">Копировать</span>
+      </button>
+    </div>`;
 
   div.querySelector('.copy-btn').addEventListener('click', () => {
     navigator.clipboard.writeText(seg.text).then(() => {
-      const icon = div.querySelector('.copy-btn .material-symbols-outlined');
+      const btn  = div.querySelector('.copy-btn');
+      const icon = btn.querySelector('.material-symbols-outlined');
+      const lbl  = btn.querySelector('span:last-child');
       icon.textContent = 'check';
-      icon.style.color = '#6B7D73';
-      setTimeout(() => { icon.textContent = 'content_copy'; icon.style.color = ''; }, 1500);
+      lbl.textContent  = 'Скопировано';
+      btn.style.color  = '#6B7D73';
+      setTimeout(() => {
+        icon.textContent = 'content_copy';
+        lbl.textContent  = 'Копировать';
+        btn.style.color  = '';
+      }, 1500);
     });
   });
 
   container.appendChild(div);
-  div.scrollIntoView({ behavior: 'smooth', block: 'end' });
+
+  // Скроллим только внутри transcript-area, не всю страницу
+  const area = document.getElementById('transcript-area');
+  area.scrollTo({ top: area.scrollHeight, behavior: 'smooth' });
 }
 
 // ── Status badge ───────────────────────────────────────────────────────────
