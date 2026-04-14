@@ -195,36 +195,63 @@ def handle_ffmpeg():
 # ──────────────────────────────────────────────────────────────────────────────
 
 DEFAULT_MODEL = "medium"
+IS_APPLE_SILICON = SYSTEM == "Darwin" and platform.machine() == "arm64"
+
+# Имена MLX-моделей (те же что в app.py)
+MLX_MODELS = {
+    "tiny":   "mlx-community/whisper-tiny-mlx",
+    "base":   "mlx-community/whisper-base-mlx",
+    "small":  "mlx-community/whisper-small-mlx",
+    "medium": "mlx-community/whisper-medium-mlx",
+    "large":  "mlx-community/whisper-large-v3-mlx",
+}
+
 
 def model_is_cached(model_name: str) -> bool:
     """Проверяет, скачана ли модель в кеш Hugging Face."""
-    cache_dir = Path.home() / ".cache" / "huggingface" / "hub"
-    model_dir = cache_dir / f"models--Systran--faster-whisper-{model_name}"
+    hf_home = Path(os.environ.get("HF_HOME", Path.home() / ".cache" / "huggingface"))
+    cache_dir = hf_home / "hub"
+    if IS_APPLE_SILICON:
+        org = "mlx-community"
+        repo = f"whisper-{model_name}-mlx" if model_name != "large" else "whisper-large-v3-mlx"
+        model_dir = cache_dir / f"models--{org}--{repo}"
+    else:
+        model_dir = cache_dir / f"models--Systran--faster-whisper-{model_name}"
     return model_dir.exists() and any(model_dir.iterdir())
 
 
 def warm_up_model():
     """Скачивает модель при первом запуске, чтобы первая транскрибация не висела."""
     if model_is_cached(DEFAULT_MODEL):
-        print(f"[✓] Модель «{DEFAULT_MODEL}» уже загружена")
+        backend = "MLX" if IS_APPLE_SILICON else "faster-whisper"
+        print(f"[✓] Модель «{DEFAULT_MODEL}» ({backend}) уже загружена")
         return
-
-    print()
-    print(f"[→] Модель «{DEFAULT_MODEL}» не найдена — скачиваю (~1.5 GB).")
-    print("    Это нужно сделать один раз. Дальнейшие запуски будут быстрыми.")
-    print()
 
     uv = find_uv()
     if not uv:
         print("[~] uv не найден — пропускаю предзагрузку модели")
         return
 
-    script = (
-        f"from faster_whisper import WhisperModel; "
-        f"print('[→] Загружаю модель (прогресс ниже)...'); "
-        f"WhisperModel('{DEFAULT_MODEL}', device='cpu', compute_type='int8'); "
-        f"print('[✓] Модель загружена!')"
-    )
+    print()
+    if IS_APPLE_SILICON:
+        mlx_repo = MLX_MODELS.get(DEFAULT_MODEL, f"mlx-community/whisper-{DEFAULT_MODEL}-mlx")
+        print(f"[→] Скачиваю модель «{DEFAULT_MODEL}» (MLX, Apple Silicon)...")
+        print("    Это нужно сделать один раз. Дальнейшие запуски мгновенные.")
+        print()
+        script = (
+            f"from huggingface_hub import snapshot_download; "
+            f"snapshot_download('{mlx_repo}'); "
+            f"print('[✓] MLX модель загружена!')"
+        )
+    else:
+        print(f"[→] Скачиваю модель «{DEFAULT_MODEL}» (~1.5 GB)...")
+        print("    Это нужно сделать один раз. Дальнейшие запуски мгновенные.")
+        print()
+        script = (
+            f"from faster_whisper import WhisperModel; "
+            f"WhisperModel('{DEFAULT_MODEL}', device='cpu', compute_type='int8'); "
+            f"print('[✓] Модель загружена!')"
+        )
 
     result = subprocess.run(
         [uv, "run", "--python", "3.11", "-c", script],
@@ -232,8 +259,7 @@ def warm_up_model():
     )
 
     if result.returncode != 0:
-        print("[~] Не удалось скачать модель — продолжаю без предзагрузки.")
-        print("    Модель скачается при первой транскрибации.")
+        print("[~] Не удалось скачать модель — скачается при первой транскрибации.")
     print()
 
 

@@ -5,10 +5,15 @@
 #   "uvicorn[standard]>=0.27.0",
 #   "faster-whisper>=1.0.0",
 #   "python-multipart>=0.0.9",
+#   "mlx-whisper>=0.4.1; sys_platform == 'darwin' and platform_machine == 'arm64'",
 # ]
 # ///
 """
 Транскрибация созвонов — FastAPI + кастомный UI.
+
+Бэкенд:
+  - Apple Silicon (M1/M2/M3): mlx-whisper (быстро, через Neural Engine)
+  - Всё остальное: faster-whisper (CPU, int8)
 
 Запуск: start.bat (Windows) / start.command (Mac) / ./start.sh (Linux)
 Откроется: http://localhost:8000
@@ -19,6 +24,7 @@ os.environ.setdefault("TOKENIZERS_PARALLELISM", "false")
 
 import asyncio
 import json
+import platform
 import subprocess
 import tempfile
 import threading
@@ -35,6 +41,21 @@ from fastapi import FastAPI, File, UploadFile
 from fastapi.responses import HTMLResponse, StreamingResponse, JSONResponse
 
 # ──────────────────────────────────────────────────────────────────────────────
+# Платформа
+# ──────────────────────────────────────────────────────────────────────────────
+
+IS_APPLE_SILICON = platform.system() == "Darwin" and platform.machine() == "arm64"
+
+# Имена моделей MLX Community для каждого размера
+MLX_MODELS: dict[str, str] = {
+    "tiny":   "mlx-community/whisper-tiny-mlx",
+    "base":   "mlx-community/whisper-base-mlx",
+    "small":  "mlx-community/whisper-small-mlx",
+    "medium": "mlx-community/whisper-medium-mlx",
+    "large":  "mlx-community/whisper-large-v3-mlx",
+}
+
+# ──────────────────────────────────────────────────────────────────────────────
 # Конфигурация
 # ──────────────────────────────────────────────────────────────────────────────
 
@@ -43,12 +64,13 @@ UPLOADS_DIR.mkdir(exist_ok=True)
 
 TEMPLATES_DIR = Path(__file__).parent / "templates"
 
-# Расширения, для которых ffmpeg не нужен
 AUDIO_EXTENSIONS = {".mp3", ".m4a", ".wav", ".ogg", ".aac", ".flac", ".wma", ".opus"}
+
+MAX_UPLOAD_MB = 2048  # 2 GB
 
 executor = ThreadPoolExecutor(max_workers=2)
 
-# Кешируем только одну модель — при смене модели старая выгружается
+# Кеш faster-whisper модели (только на не-Apple-Silicon)
 _loaded_model: tuple[str, Any] | None = None
 _model_lock = threading.Lock()
 
@@ -57,11 +79,13 @@ _active: dict[str, tuple[threading.Event, asyncio.Queue]] = {}
 
 
 # ──────────────────────────────────────────────────────────────────────────────
-# Жизненный цикл приложения
+# Предзагрузка модели при старте (только faster-whisper, MLX не нужно)
 # ──────────────────────────────────────────────────────────────────────────────
 
 def _preload_model():
-    """Загружает модель в RAM при старте — чтобы первая транскрибация была мгновенной."""
+    """На не-Apple-Silicon загружает faster-whisper модель в RAM при старте."""
+    if IS_APPLE_SILICON:
+        return
     global _loaded_model
     try:
         from faster_whisper import WhisperModel
@@ -69,18 +93,15 @@ def _preload_model():
             if _loaded_model is None:
                 _loaded_model = ("medium", WhisperModel("medium", device="cpu", compute_type="int8"))
     except Exception:
-        pass  # Не блокируем запуск если что-то пошло не так
+        pass
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Удалить загруженные файлы старше 24 часов
     cutoff = time.time() - 86_400
     for f in UPLOADS_DIR.iterdir():
         if f.is_file() and f.stat().st_mtime < cutoff:
             f.unlink(missing_ok=True)
-
-    # Загрузить модель в фоне — готова к моменту первого запроса
     asyncio.get_event_loop().run_in_executor(executor, _preload_model)
     yield
 
@@ -101,8 +122,6 @@ async def index():
 # Загрузка файла
 # ──────────────────────────────────────────────────────────────────────────────
 
-MAX_UPLOAD_MB = 2048  # 2 GB
-
 @app.post("/upload")
 async def upload_file(file: UploadFile = File(...)):
     file_id = str(uuid.uuid4())
@@ -111,7 +130,7 @@ async def upload_file(file: UploadFile = File(...)):
 
     size = 0
     with dest.open("wb") as f:
-        while chunk := await file.read(1024 * 1024):  # читаем по 1 MB
+        while chunk := await file.read(1024 * 1024):
             size += len(chunk)
             if size > MAX_UPLOAD_MB * 1024 * 1024:
                 dest.unlink(missing_ok=True)
@@ -139,7 +158,6 @@ async def cancel_transcription(file_id: str):
     if file_id in _active:
         event, queue = _active[file_id]
         event.set()
-        # Сразу закрываем SSE-стрим — не ждём пока поток дойдёт до проверки
         await queue.put({"type": "cancelled"})
         await queue.put(None)
     return JSONResponse({"ok": True})
@@ -164,7 +182,6 @@ async def stream_transcription(
 
     file_path = files[0]
 
-    # Для аудиофайлов ffmpeg не нужен — пропускаем независимо от параметра
     if file_path.suffix.lower() in AUDIO_EXTENSIONS:
         extract_audio = False
 
@@ -174,28 +191,24 @@ async def stream_transcription(
     loop = asyncio.get_running_loop()
 
     def _run():
-        global _loaded_model
         audio_tmp: str | None = None
         lang = None if language == "auto" else language
         t_start = time.time()
 
         try:
-            from faster_whisper import WhisperModel
-
             transcribe_path = str(file_path)
 
-            # Извлечь аудио из видео
+            # ── Извлечь аудио из видео ────────────────────────────────────────
             if extract_audio:
                 _put(loop, queue, {"type": "status", "message": "Извлечение аудиодорожки..."})
                 tmp = tempfile.NamedTemporaryFile(suffix=".mp3", delete=False)
                 audio_tmp = tmp.name
                 tmp.close()
-                cmd = [
-                    "ffmpeg", "-y", "-i", transcribe_path,
-                    "-vn", "-acodec", "mp3", "-ab", "64k", "-ar", "16000",
-                    audio_tmp,
-                ]
-                res = subprocess.run(cmd, capture_output=True)
+                res = subprocess.run(
+                    ["ffmpeg", "-y", "-i", transcribe_path,
+                     "-vn", "-acodec", "mp3", "-ab", "64k", "-ar", "16000", audio_tmp],
+                    capture_output=True,
+                )
                 if res.returncode != 0:
                     _put(loop, queue, {
                         "type": "error",
@@ -204,50 +217,15 @@ async def stream_transcription(
                     return
                 transcribe_path = audio_tmp
 
-            # Загрузить модель (держим только одну в памяти)
-            _put(loop, queue, {"type": "status", "message": f"Загрузка модели «{model}»..."})
-            with _model_lock:
-                if _loaded_model is None or _loaded_model[0] != model:
-                    _loaded_model = (model, WhisperModel(model, device="cpu", compute_type="int8"))
-                whisper = _loaded_model[1]
-
             if cancel_event.is_set():
                 _put(loop, queue, {"type": "cancelled"})
                 return
 
-            # Транскрибировать
-            _put(loop, queue, {"type": "status", "message": "Транскрибирую..."})
-            segments, info = whisper.transcribe(transcribe_path, language=lang)
-
-            count = 0
-            for seg in segments:
-                if cancel_event.is_set():
-                    _put(loop, queue, {"type": "cancelled"})
-                    return
-
-                count += 1
-                elapsed = time.time() - t_start
-                speed = f"{seg.end / elapsed:.1f}×" if elapsed > 0.5 else ""
-
-                _put(loop, queue, {
-                    "type": "segment",
-                    "start":   _fmt(seg.start),
-                    "end":     _fmt(seg.end),
-                    "start_s": round(seg.start, 3),
-                    "end_s":   round(seg.end, 3),
-                    "text":    seg.text.strip(),
-                    "speed":   speed,
-                })
-
-            elapsed = time.time() - t_start
-            total_speed = f"{info.duration / elapsed:.1f}×" if elapsed > 1 else ""
-            _put(loop, queue, {
-                "type":        "done",
-                "segments":    count,
-                "language":    info.language.upper(),
-                "probability": f"{info.language_probability:.0%}",
-                "speed":       total_speed,
-            })
+            # ── Выбор бэкенда ─────────────────────────────────────────────────
+            if IS_APPLE_SILICON:
+                _run_mlx(transcribe_path, model, lang, t_start, loop, queue, cancel_event)
+            else:
+                _run_faster_whisper(transcribe_path, model, lang, t_start, loop, queue, cancel_event)
 
         except Exception as e:
             _put(loop, queue, {"type": "error", "message": str(e)})
@@ -256,7 +234,6 @@ async def stream_transcription(
                 Path(audio_tmp).unlink(missing_ok=True)
             file_path.unlink(missing_ok=True)
             _active.pop(file_id, None)
-            # None-терминатор закрывает генератор; если cancel уже его отправил — лишний None безвреден
             loop.call_soon_threadsafe(queue.put_nowait, None)
 
     loop.run_in_executor(executor, _run)
@@ -273,6 +250,110 @@ async def stream_transcription(
         media_type="text/event-stream",
         headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
     )
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Бэкенд: MLX Whisper (Apple Silicon)
+# ──────────────────────────────────────────────────────────────────────────────
+
+def _run_mlx(path, model, lang, t_start, loop, queue, cancel_event):
+    import mlx_whisper
+
+    mlx_repo = MLX_MODELS.get(model, f"mlx-community/whisper-{model}-mlx")
+    _put(loop, queue, {"type": "status", "message": f"Транскрибирую (Apple {model})..."})
+
+    result = mlx_whisper.transcribe(
+        path,
+        path_or_hf_repo=mlx_repo,
+        language=lang,
+        verbose=False,
+    )
+
+    segments = result.get("segments", [])
+    count = 0
+    for seg in segments:
+        if cancel_event.is_set():
+            _put(loop, queue, {"type": "cancelled"})
+            return
+
+        count += 1
+        elapsed = time.time() - t_start
+        speed = f"{seg['end'] / elapsed:.1f}×" if elapsed > 0.5 else ""
+
+        _put(loop, queue, {
+            "type":    "segment",
+            "start":   _fmt(seg["start"]),
+            "end":     _fmt(seg["end"]),
+            "start_s": round(seg["start"], 3),
+            "end_s":   round(seg["end"], 3),
+            "text":    seg["text"].strip(),
+            "speed":   speed,
+        })
+
+    elapsed = time.time() - t_start
+    duration = segments[-1]["end"] if segments else 0
+    total_speed = f"{duration / elapsed:.1f}×" if elapsed > 1 else ""
+    detected_lang = (result.get("language") or "?").upper()
+
+    _put(loop, queue, {
+        "type":        "done",
+        "segments":    count,
+        "language":    detected_lang,
+        "probability": "Apple Silicon",
+        "speed":       total_speed,
+    })
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Бэкенд: faster-whisper (Windows / Linux / Intel Mac)
+# ──────────────────────────────────────────────────────────────────────────────
+
+def _run_faster_whisper(path, model, lang, t_start, loop, queue, cancel_event):
+    global _loaded_model
+    from faster_whisper import WhisperModel
+
+    _put(loop, queue, {"type": "status", "message": f"Загрузка модели «{model}»..."})
+    with _model_lock:
+        if _loaded_model is None or _loaded_model[0] != model:
+            _loaded_model = (model, WhisperModel(model, device="cpu", compute_type="int8"))
+        whisper = _loaded_model[1]
+
+    if cancel_event.is_set():
+        _put(loop, queue, {"type": "cancelled"})
+        return
+
+    _put(loop, queue, {"type": "status", "message": "Транскрибирую..."})
+    segments, info = whisper.transcribe(path, language=lang)
+
+    count = 0
+    for seg in segments:
+        if cancel_event.is_set():
+            _put(loop, queue, {"type": "cancelled"})
+            return
+
+        count += 1
+        elapsed = time.time() - t_start
+        speed = f"{seg.end / elapsed:.1f}×" if elapsed > 0.5 else ""
+
+        _put(loop, queue, {
+            "type":    "segment",
+            "start":   _fmt(seg.start),
+            "end":     _fmt(seg.end),
+            "start_s": round(seg.start, 3),
+            "end_s":   round(seg.end, 3),
+            "text":    seg.text.strip(),
+            "speed":   speed,
+        })
+
+    elapsed = time.time() - t_start
+    total_speed = f"{info.duration / elapsed:.1f}×" if elapsed > 1 else ""
+    _put(loop, queue, {
+        "type":        "done",
+        "segments":    count,
+        "language":    info.language.upper(),
+        "probability": f"{info.language_probability:.0%}",
+        "speed":       total_speed,
+    })
 
 
 # ──────────────────────────────────────────────────────────────────────────────
