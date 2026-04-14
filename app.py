@@ -19,6 +19,7 @@
 Откроется: http://localhost:8000
 """
 import os
+os.environ.setdefault("HF_ENDPOINT", "https://hf-mirror.com")
 os.environ.setdefault("HF_HUB_VERBOSITY", "warning")
 os.environ.setdefault("TOKENIZERS_PARALLELISM", "false")
 

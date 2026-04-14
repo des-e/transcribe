@@ -18,6 +18,9 @@ from pathlib import Path
 HERE   = Path(__file__).parent
 SYSTEM = platform.system()  # "Windows", "Darwin", "Linux"
 
+# Зеркало HuggingFace — ускоряет скачивание моделей в СНГ
+os.environ.setdefault("HF_ENDPOINT", "https://hf-mirror.com")
+
 # Репозиторий для автообновления
 _ro = "https://github.com/des-e/transcribe.git"
 
