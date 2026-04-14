@@ -81,6 +81,14 @@ def check_for_updates():
     except Exception:
         return
 
+    # Обновляем только master — на feature-ветках не трогаем
+    current_branch = subprocess.run(
+        ["git", "rev-parse", "--abbrev-ref", "HEAD"],
+        cwd=HERE, capture_output=True, text=True,
+    ).stdout.strip()
+    if current_branch != "master":
+        return
+
     print("[→] Проверяю обновления...")
 
     try:
