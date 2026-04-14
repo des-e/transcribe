@@ -118,6 +118,11 @@ async def index():
     return (TEMPLATES_DIR / "index.html").read_text(encoding="utf-8")
 
 
+@app.get("/info")
+async def info():
+    return JSONResponse({"backend": "mlx" if IS_APPLE_SILICON else "cpu"})
+
+
 # ──────────────────────────────────────────────────────────────────────────────
 # Загрузка файла
 # ──────────────────────────────────────────────────────────────────────────────
