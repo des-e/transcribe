@@ -11,6 +11,7 @@
 import os
 import platform
 import shutil
+import socket
 import subprocess
 import sys
 from pathlib import Path
@@ -232,18 +233,35 @@ MLX_MODELS = {
 
 
 def model_is_cached(model_name: str) -> bool:
-    """Проверяет, полностью ли скачана модель (по размеру blobs)."""
+    """Проверяет, полностью ли скачана модель.
+
+    Два критерия:
+    - refs/main существует (HuggingFace записывает его только после полной загрузки)
+    - суммарный размер blobs > 100 MB (защита от пустых/частичных загрузок)
+    """
     hf_home = Path(os.environ.get("HF_HOME", Path.home() / ".cache" / "huggingface"))
     hub = hf_home / "hub"
     if IS_APPLE_SILICON:
         repo = f"whisper-{model_name}-mlx" if model_name != "large" else "whisper-large-v3-mlx"
-        blobs = hub / f"models--mlx-community--{repo}" / "blobs"
+        model_dir = hub / f"models--mlx-community--{repo}"
     else:
-        blobs = hub / f"models--Systran--faster-whisper-{model_name}" / "blobs"
+        model_dir = hub / f"models--Systran--faster-whisper-{model_name}"
+
+    if not model_dir.exists():
+        return False
+
+    # refs/main — финальный маркер успешно завершённой загрузки HuggingFace
+    if not (model_dir / "refs" / "main").exists():
+        return False
+
+    blobs = model_dir / "blobs"
     if not blobs.exists():
         return False
-    total = sum(f.stat().st_size for f in blobs.iterdir() if f.is_file())
-    return total > 100 * 1024 * 1024  # хотя бы 100 MB
+    try:
+        total = sum(f.stat().st_size for f in blobs.iterdir() if f.is_file())
+    except OSError:
+        return False
+    return total > 100 * 1024 * 1024
 
 
 def warm_up_model():
@@ -265,6 +283,22 @@ def _warm_up_model():
     if not uv:
         print("[~] uv не найден — пропускаю предзагрузку модели")
         return
+
+    # Проверяем свободное место перед загрузкой
+    required_gb = 1.0 if IS_APPLE_SILICON else 2.0
+    try:
+        free_gb = shutil.disk_usage(Path.home()).free / (1024 ** 3)
+        if free_gb < required_gb:
+            print()
+            print(f"[!] Мало места на диске: {free_gb:.1f} ГБ свободно, нужно ~{required_gb:.0f} ГБ.")
+            print("    Освободи место и запусти снова.")
+            print()
+            if input("    Пропустить предзагрузку? [y/N]: ").strip().lower() != "y":
+                _pause_exit()
+            print("[~] Пропускаю — модель скачается при первой транскрибации.")
+            return
+    except OSError:
+        pass  # Не можем проверить — продолжаем
 
     print()
     if IS_APPLE_SILICON:
@@ -295,6 +329,31 @@ def _warm_up_model():
     if result.returncode != 0:
         print("[~] Не удалось скачать модель — скачается при первой транскрибации.")
     print()
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Проверка порта
+# ──────────────────────────────────────────────────────────────────────────────
+
+def _port_free(port: int = 8000) -> bool:
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+        return s.connect_ex(("127.0.0.1", port)) != 0
+
+
+def handle_port():
+    if _port_free():
+        return
+    print()
+    print("[!] Порт 8000 занят — возможно, Transcribe уже запущен в другом окне.")
+    print()
+    if SYSTEM == "Windows":
+        print("    Найти PID:   netstat -ano | findstr :8000")
+        print("    Завершить:   taskkill /PID <номер> /F")
+    else:
+        print("    Завершить:   kill -9 $(lsof -t -i :8000)")
+    print()
+    if input("    Запустить всё равно? [y/N]: ").strip().lower() != "y":
+        _pause_exit()
 
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -343,4 +402,5 @@ if __name__ == "__main__":
     check_for_updates()
     handle_ffmpeg()
     warm_up_model()
+    handle_port()
     run_app()

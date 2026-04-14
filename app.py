@@ -37,7 +37,7 @@ from pathlib import Path
 from typing import Any
 
 import uvicorn
-from fastapi import FastAPI, File, UploadFile
+from fastapi import FastAPI, File, Request, UploadFile
 from fastapi.responses import HTMLResponse, StreamingResponse, JSONResponse
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -59,8 +59,13 @@ MLX_MODELS: dict[str, str] = {
 # Конфигурация
 # ──────────────────────────────────────────────────────────────────────────────
 
-UPLOADS_DIR = Path(tempfile.gettempdir()) / "bx_transcribe"
-UPLOADS_DIR.mkdir(exist_ok=True)
+try:
+    UPLOADS_DIR = Path(tempfile.gettempdir()) / "bx_transcribe"
+    UPLOADS_DIR.mkdir(exist_ok=True)
+except OSError:
+    # Fallback: папка рядом со скриптом (если /tmp недоступен)
+    UPLOADS_DIR = Path(__file__).parent / "_uploads"
+    UPLOADS_DIR.mkdir(exist_ok=True)
 
 TEMPLATES_DIR = Path(__file__).parent / "templates"
 
@@ -173,6 +178,7 @@ async def cancel_transcription(file_id: str):
 
 @app.get("/stream")
 async def stream_transcription(
+    request: Request,
     file_id: str,
     model: str = "medium",
     extract_audio: bool = True,
@@ -244,11 +250,25 @@ async def stream_transcription(
     t.start()
 
     async def _generate():
-        while True:
-            item = await queue.get()
-            if item is None:
-                break
-            yield f"data: {json.dumps(item, ensure_ascii=False)}\n\n"
+        try:
+            while True:
+                # Ждём следующий сегмент с таймаутом — чтобы проверять разрыв соединения
+                try:
+                    item = await asyncio.wait_for(queue.get(), timeout=2.0)
+                except asyncio.TimeoutError:
+                    if await request.is_disconnected():
+                        cancel_event.set()
+                        break
+                    continue
+
+                if item is None:
+                    break
+                yield f"data: {json.dumps(item, ensure_ascii=False)}\n\n"
+        except GeneratorExit:
+            # Браузер закрыл вкладку / страницу — останавливаем фоновый поток
+            cancel_event.set()
+        finally:
+            _active.pop(file_id, None)
 
     return StreamingResponse(
         _generate(),
@@ -262,18 +282,41 @@ async def stream_transcription(
 # ──────────────────────────────────────────────────────────────────────────────
 
 def _mlx_model_cached(model_name: str) -> bool:
-    """Проверяет что MLX модель полностью скачана (проверяет размер blobs)."""
+    """Проверяет что MLX модель полностью скачана.
+
+    Два критерия:
+    - refs/main существует (HuggingFace пишет его только после полной загрузки)
+    - суммарный размер blobs > 100 MB
+    """
     hf_home = Path(os.environ.get("HF_HOME", Path.home() / ".cache" / "huggingface"))
     repo = f"whisper-{model_name}-mlx" if model_name != "large" else "whisper-large-v3-mlx"
-    blobs_dir = hf_home / "hub" / f"models--mlx-community--{repo}" / "blobs"
+    model_dir = hf_home / "hub" / f"models--mlx-community--{repo}"
+    if not model_dir.exists():
+        return False
+    if not (model_dir / "refs" / "main").exists():
+        return False
+    blobs_dir = model_dir / "blobs"
     if not blobs_dir.exists():
         return False
-    total = sum(f.stat().st_size for f in blobs_dir.iterdir() if f.is_file())
-    return total > 100 * 1024 * 1024  # хотя бы 100 MB
+    try:
+        total = sum(f.stat().st_size for f in blobs_dir.iterdir() if f.is_file())
+    except OSError:
+        return False
+    return total > 100 * 1024 * 1024
 
 
 def _run_mlx(path, model, lang, t_start, loop, queue, cancel_event):
-    import mlx_whisper
+    try:
+        import mlx_whisper
+    except ImportError as e:
+        _put(loop, queue, {
+            "type": "error",
+            "message": (
+                f"Не удалось загрузить MLX Whisper: {e}\n"
+                "Перезапусти приложение — зависимости установятся автоматически."
+            ),
+        })
+        return
 
     mlx_repo = MLX_MODELS.get(model, f"mlx-community/whisper-{model}-mlx")
 
@@ -353,7 +396,17 @@ def _run_mlx(path, model, lang, t_start, loop, queue, cancel_event):
 
 def _run_faster_whisper(path, model, lang, t_start, loop, queue, cancel_event):
     global _loaded_model
-    from faster_whisper import WhisperModel
+    try:
+        from faster_whisper import WhisperModel
+    except ImportError as e:
+        _put(loop, queue, {
+            "type": "error",
+            "message": (
+                f"Не удалось загрузить faster-whisper: {e}\n"
+                "Перезапусти приложение — зависимости установятся автоматически."
+            ),
+        })
+        return
 
     _put(loop, queue, {"type": "status", "message": f"Загрузка модели «{model}»..."})
     with _model_lock:
