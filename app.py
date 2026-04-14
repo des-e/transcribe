@@ -38,7 +38,7 @@ from typing import Any
 
 import uvicorn
 from fastapi import FastAPI, File, Request, UploadFile
-from fastapi.responses import HTMLResponse, StreamingResponse, JSONResponse
+from fastapi.responses import FileResponse, HTMLResponse, StreamingResponse, JSONResponse
 
 # ──────────────────────────────────────────────────────────────────────────────
 # Платформа
@@ -173,6 +173,29 @@ async def cancel_transcription(file_id: str):
 
 
 # ──────────────────────────────────────────────────────────────────────────────
+# Аудиоплеер
+# ──────────────────────────────────────────────────────────────────────────────
+
+@app.get("/audio/{file_id}")
+async def get_audio(file_id: str):
+    """Отдаёт аудиофайл для плеера. Поддерживает Range-запросы (нужно для seek)."""
+    for pattern in [f"{file_id}_audio.*", f"{file_id}.*"]:
+        files = list(UPLOADS_DIR.glob(pattern))
+        if files:
+            return FileResponse(str(files[0]))
+    return JSONResponse({"error": "not found"}, status_code=404)
+
+
+@app.post("/clear/{file_id}")
+async def clear_file(file_id: str):
+    """Удаляет файлы транскрибации по запросу фронтенда."""
+    for pattern in [f"{file_id}_audio.*", f"{file_id}.*"]:
+        for f in UPLOADS_DIR.glob(pattern):
+            f.unlink(missing_ok=True)
+    return JSONResponse({"ok": True})
+
+
+# ──────────────────────────────────────────────────────────────────────────────
 # Транскрибация (SSE-поток)
 # ──────────────────────────────────────────────────────────────────────────────
 
@@ -201,9 +224,9 @@ async def stream_transcription(
     loop = asyncio.get_running_loop()
 
     def _run():
-        audio_tmp: str | None = None
         lang = None if language == "auto" else language
         t_start = time.time()
+        delete_original = False
 
         try:
             transcribe_path = str(file_path)
@@ -211,12 +234,11 @@ async def stream_transcription(
             # ── Извлечь аудио из видео ────────────────────────────────────────
             if extract_audio:
                 _put(loop, queue, {"type": "status", "message": "Извлечение аудиодорожки..."})
-                tmp = tempfile.NamedTemporaryFile(suffix=".mp3", delete=False)
-                audio_tmp = tmp.name
-                tmp.close()
+                audio_out = UPLOADS_DIR / f"{file_id}_audio.mp3"
                 res = subprocess.run(
                     ["ffmpeg", "-y", "-i", transcribe_path,
-                     "-vn", "-acodec", "mp3", "-ab", "64k", "-ar", "16000", audio_tmp],
+                     "-vn", "-acodec", "mp3", "-ab", "128k", "-ar", "44100",
+                     str(audio_out)],
                     capture_output=True,
                 )
                 if res.returncode != 0:
@@ -225,7 +247,8 @@ async def stream_transcription(
                         "message": f"ffmpeg error: {res.stderr.decode()[-300:]}",
                     })
                     return
-                transcribe_path = audio_tmp
+                transcribe_path = str(audio_out)
+                delete_original = True  # оригинальное видео больше не нужно
 
             if cancel_event.is_set():
                 _put(loop, queue, {"type": "cancelled"})
@@ -240,9 +263,10 @@ async def stream_transcription(
         except Exception as e:
             _put(loop, queue, {"type": "error", "message": str(e)})
         finally:
-            if audio_tmp:
-                Path(audio_tmp).unlink(missing_ok=True)
-            file_path.unlink(missing_ok=True)
+            if delete_original:
+                file_path.unlink(missing_ok=True)
+            # Аудиофайл остаётся в UPLOADS_DIR для /audio/{file_id}
+            # Удаляется через /clear/{file_id} или 24ч cleanup при старте
             _active.pop(file_id, None)
             loop.call_soon_threadsafe(queue.put_nowait, None)
 

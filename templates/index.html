@@ -44,6 +44,9 @@
   @keyframes spin { to { transform: rotate(360deg); } }
   @keyframes blink { 0%,100% { opacity: 1; } 50% { opacity: .25; } }
   .blink { animation: blink 1.6s ease-in-out infinite; }
+  .seg-row { border-left: 2px solid transparent; margin-left: -2px; padding-left: 2px; transition: background .15s, border-color .15s; border-radius: 3px; }
+  .seg-row:hover { background: rgba(107,125,115,.05); cursor: pointer; }
+  .seg-active { background: rgba(107,125,115,.09) !important; border-left-color: rgba(107,125,115,.5) !important; }
 </style>
 </head>
 <body class="antialiased min-h-screen">
@@ -90,22 +93,43 @@
   <!-- Body -->
   <div class="flex flex-1 overflow-hidden" style="height: calc(100vh - 3.5rem)">
 
-    <!-- Center: Transcript -->
-    <section class="flex-1 overflow-y-auto scrollbar bg-bg" id="transcript-area">
-      <div class="px-12 py-10 max-w-3xl mx-auto min-h-full flex flex-col">
+    <!-- Center: Transcript + Player -->
+    <section class="flex-1 flex flex-col overflow-hidden bg-bg">
 
-        <!-- Empty state -->
-        <div id="empty-state" class="flex-1 flex flex-col items-center justify-center text-center py-24">
-          <span class="material-symbols-outlined text-[3.5rem] text-border/30 mb-5 block">graphic_eq</span>
-          <p class="text-sm text-muted/30 font-inter leading-relaxed">
-            Загрузи файл и нажми «Транскрибировать»
-          </p>
+      <!-- Scrollable transcript -->
+      <div class="flex-1 overflow-y-auto scrollbar" id="transcript-area">
+        <div class="px-12 py-10 max-w-3xl mx-auto min-h-full flex flex-col">
+
+          <!-- Empty state -->
+          <div id="empty-state" class="flex-1 flex flex-col items-center justify-center text-center py-24">
+            <span class="material-symbols-outlined text-[3.5rem] text-border/30 mb-5 block">graphic_eq</span>
+            <p class="text-sm text-muted/30 font-inter leading-relaxed">
+              Загрузи файл и нажми «Транскрибировать»
+            </p>
+          </div>
+
+          <!-- Segments -->
+          <div id="segments-container" class="hidden space-y-1 pb-10"></div>
+
         </div>
-
-        <!-- Segments -->
-        <div id="segments-container" class="hidden space-y-9 pb-10"></div>
-
       </div>
+
+      <!-- Audio player -->
+      <div id="audio-player" class="hidden border-t border-border/10 bg-sidebar px-12 py-3.5 shrink-0">
+        <audio id="audio-el" preload="metadata"></audio>
+        <div class="max-w-3xl mx-auto flex items-center gap-4">
+          <button id="play-btn" onclick="togglePlay()"
+                  class="w-7 h-7 flex items-center justify-center rounded hover:bg-surface/60 transition-colors shrink-0">
+            <span class="material-symbols-outlined icon-fill text-accent" style="font-size:20px">play_arrow</span>
+          </button>
+          <span id="audio-time" class="text-[11px] font-inter text-muted/35 shrink-0 tabular-nums w-24">0:00 / 0:00</span>
+          <div id="progress-track" class="flex-1 h-px bg-border/25 relative cursor-pointer" onclick="seekAudio(event)">
+            <div id="progress-fill" class="absolute left-0 top-0 h-full bg-accent/50 pointer-events-none" style="width:0%"></div>
+            <div id="progress-thumb" class="absolute top-1/2 -translate-y-1/2 w-2.5 h-2.5 rounded-full bg-accent opacity-0 pointer-events-none" style="left:0%"></div>
+          </div>
+        </div>
+      </div>
+
     </section>
 
     <!-- Right: Controls -->
@@ -394,9 +418,13 @@ function uploadFile(file) {
 }
 
 function clearFile() {
-  if (currentFileId && eventSource) stopTranscription();
+  if (currentFileId) {
+    if (eventSource) stopTranscription();
+    fetch(`/clear/${currentFileId}`, { method: 'POST' }).catch(() => {});
+  }
   currentFileId   = null;
   currentFilename = null;
+  hidePlayer();
   document.getElementById('file-card').classList.add('hidden');
   document.getElementById('header-filename').textContent = 'не выбран';
   document.getElementById('extract-wrapper').style.display = '';
@@ -446,6 +474,7 @@ function startTranscription() {
       setBtnState('idle');
       eventSource.close();
       addActivity(`Готово — ${data.segments} сегм., ${data.speed} real-time`);
+      showPlayer(currentFileId);
 
     } else if (data.type === 'cancelled') {
       setStatus('idle', '');
@@ -482,7 +511,9 @@ function stopTranscription() {
 function appendSegment(seg) {
   const container = document.getElementById('segments-container');
   const div = document.createElement('div');
-  div.className = 'group flex gap-4 items-start';
+  div.className = 'seg-row group flex gap-4 items-start py-2.5';
+  div.dataset.startS = seg.start_s;
+  div.dataset.endS   = seg.end_s;
   div.innerHTML = `
     <button class="copy-btn mt-0.5 p-1.5 rounded shrink-0
                    opacity-0 group-hover:opacity-100 transition-all
@@ -490,13 +521,18 @@ function appendSegment(seg) {
                    border border-transparent hover:border-border/20" title="Копировать">
       <span class="material-symbols-outlined text-sm">content_copy</span>
     </button>
-    <div class="w-20 shrink-0 pt-px">
+    <div class="w-20 shrink-0 pt-px select-none">
       <span class="text-[10px] font-inter font-medium text-muted/35 tracking-widest block">${seg.start}</span>
       <span class="text-[10px] font-inter text-muted/20 block mt-0.5">${seg.end}</span>
     </div>
     <div class="flex-1 min-w-0">
       <p class="text-[15px] leading-relaxed font-light text-primary/85 selection:bg-accent/20">${escHtml(seg.text)}</p>
     </div>`;
+
+  div.addEventListener('click', e => {
+    if (e.target.closest('.copy-btn')) return;
+    seekToSegment(seg.start_s);
+  });
 
   div.querySelector('.copy-btn').addEventListener('click', () => {
     navigator.clipboard.writeText(seg.text).then(() => {
@@ -513,7 +549,6 @@ function appendSegment(seg) {
 
   container.appendChild(div);
 
-  // Скроллим только внутри transcript-area, не всю страницу
   const area = document.getElementById('transcript-area');
   area.scrollTo({ top: area.scrollHeight, behavior: 'smooth' });
 }
@@ -600,6 +635,86 @@ function toSrtTime(s) {
 
 function escHtml(t) {
   return t.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+// ── Audio player ───────────────────────────────────────────────────────────
+const audioEl       = document.getElementById('audio-el');
+const progressFill  = document.getElementById('progress-fill');
+const progressThumb = document.getElementById('progress-thumb');
+const audioTimeEl   = document.getElementById('audio-time');
+
+audioEl.addEventListener('play',  () => { document.querySelector('#play-btn .material-symbols-outlined').textContent = 'pause'; });
+audioEl.addEventListener('pause', () => { document.querySelector('#play-btn .material-symbols-outlined').textContent = 'play_arrow'; });
+audioEl.addEventListener('ended', () => { document.querySelector('#play-btn .material-symbols-outlined').textContent = 'play_arrow'; });
+
+audioEl.addEventListener('timeupdate', () => {
+  const pct = audioEl.duration ? (audioEl.currentTime / audioEl.duration * 100) : 0;
+  progressFill.style.width = pct + '%';
+  progressThumb.style.left = pct + '%';
+  audioTimeEl.textContent  = fmtTime(audioEl.currentTime) + ' / ' + fmtTime(audioEl.duration || 0);
+  highlightSegment(audioEl.currentTime);
+});
+
+document.getElementById('progress-track').addEventListener('mouseenter', () => { progressThumb.style.opacity = '1'; });
+document.getElementById('progress-track').addEventListener('mouseleave', () => { progressThumb.style.opacity = '0'; });
+
+function togglePlay() {
+  if (!audioEl.src) return;
+  audioEl.paused ? audioEl.play() : audioEl.pause();
+}
+
+function seekAudio(e) {
+  if (!audioEl.duration) return;
+  const rect = e.currentTarget.getBoundingClientRect();
+  audioEl.currentTime = ((e.clientX - rect.left) / rect.width) * audioEl.duration;
+  audioEl.play();
+}
+
+function seekToSegment(startS) {
+  if (!audioEl.src) return;
+  audioEl.currentTime = startS;
+  audioEl.play();
+}
+
+let _lastActiveRow = null;
+function highlightSegment(t) {
+  const rows = document.querySelectorAll('.seg-row');
+  let found = null;
+  for (const row of rows) {
+    if (t >= parseFloat(row.dataset.startS) && t < parseFloat(row.dataset.endS)) { found = row; break; }
+  }
+  if (found === _lastActiveRow) return;
+  if (_lastActiveRow) _lastActiveRow.classList.remove('seg-active');
+  if (found) {
+    found.classList.add('seg-active');
+    const area = document.getElementById('transcript-area');
+    const top  = found.offsetTop;
+    if (top < area.scrollTop + 80 || top > area.scrollTop + area.clientHeight - 120) {
+      area.scrollTo({ top: top - area.clientHeight / 2, behavior: 'smooth' });
+    }
+  }
+  _lastActiveRow = found;
+}
+
+function showPlayer(fileId) {
+  audioEl.src = `/audio/${fileId}`;
+  document.getElementById('audio-player').classList.remove('hidden');
+}
+
+function hidePlayer() {
+  audioEl.pause();
+  audioEl.src          = '';
+  progressFill.style.width = '0%';
+  progressThumb.style.left = '0%';
+  audioTimeEl.textContent  = '0:00 / 0:00';
+  document.querySelector('#play-btn .material-symbols-outlined').textContent = 'play_arrow';
+  if (_lastActiveRow) { _lastActiveRow.classList.remove('seg-active'); _lastActiveRow = null; }
+  document.getElementById('audio-player').classList.add('hidden');
+}
+
+function fmtTime(s) {
+  if (!s || isNaN(s)) return '0:00';
+  return `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
 }
 
 // ── Init ───────────────────────────────────────────────────────────────────
