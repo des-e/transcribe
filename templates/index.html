@@ -1,0 +1,559 @@
+<!DOCTYPE html>
+<html class="dark" lang="ru">
+<head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>ExCode — Транскрибация</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
+<style>
+  body { font-family: 'Inter', sans-serif; }
+  .material-symbols-outlined {
+    font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+    vertical-align: middle;
+  }
+  .custom-scrollbar::-webkit-scrollbar { width: 4px; }
+  .custom-scrollbar::-webkit-scrollbar-track { background: #0c1324; }
+  .custom-scrollbar::-webkit-scrollbar-thumb { background: #2e3447; border-radius: 10px; }
+  .spin { animation: spin 1s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+</style>
+<script>
+  tailwind.config = {
+    darkMode: "class",
+    theme: {
+      extend: {
+        colors: {
+          "background":                "#0c1324",
+          "on-background":             "#dce1fb",
+          "surface":                   "#0c1324",
+          "surface-dim":               "#0c1324",
+          "surface-container-lowest":  "#070d1f",
+          "surface-container-low":     "#151b2d",
+          "surface-container":         "#191f31",
+          "surface-container-high":    "#23293c",
+          "surface-container-highest": "#2e3447",
+          "surface-bright":            "#33394c",
+          "on-surface":                "#dce1fb",
+          "on-surface-variant":        "#c7c4d7",
+          "outline":                   "#908fa0",
+          "outline-variant":           "#464554",
+          "primary":                   "#c0c1ff",
+          "on-primary":                "#1000a9",
+          "primary-container":         "#8083ff",
+          "on-primary-container":      "#0d0096",
+          "error":                     "#ffb4ab",
+          "error-container":           "#93000a",
+        },
+        fontFamily: { "sans": ["Inter"] },
+        borderRadius: { "DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px" },
+      },
+    },
+  }
+</script>
+</head>
+<body class="bg-background text-on-background antialiased">
+
+<!-- ── Sidebar ───────────────────────────────────────────────────────────── -->
+<aside class="fixed left-0 top-0 h-full z-50 flex flex-col bg-[#070d1f] w-20 md:w-64 border-r border-outline-variant/10">
+  <div class="p-6 flex items-center gap-3">
+    <div class="w-8 h-8 rounded-lg bg-primary-container flex items-center justify-center shrink-0">
+      <span class="material-symbols-outlined text-[#0d0096] text-sm" style="font-variation-settings:'FILL' 1;">mic</span>
+    </div>
+    <div class="hidden md:block">
+      <h1 class="text-xl font-bold tracking-tighter text-primary">Транскрибация</h1>
+      <p class="text-[10px] uppercase tracking-widest text-on-surface-variant opacity-60">by Denis Eliseev &amp; AI</p>
+    </div>
+  </div>
+  <nav class="flex-1 mt-4 px-3 space-y-1">
+    <a class="flex items-center gap-3 px-4 py-3 rounded-xl text-primary bg-surface-container-high border-l-4 border-[#6366f1] font-semibold" href="#">
+      <span class="material-symbols-outlined" style="font-variation-settings:'FILL' 1;">description</span>
+      <span class="hidden md:block">Транскрипции</span>
+    </a>
+  </nav>
+</aside>
+
+<!-- ── Top bar ───────────────────────────────────────────────────────────── -->
+<header class="fixed top-0 right-0 left-20 md:left-64 h-16 flex items-center px-8 z-40 bg-[#0c1324]/80 backdrop-blur-xl border-b border-outline-variant/10">
+  <h2 class="text-lg font-bold text-on-surface tracking-tight">Перевод видео и аудио в текст</h2>
+</header>
+
+<!-- ── Main ──────────────────────────────────────────────────────────────── -->
+<main class="ml-20 md:ml-64 pt-16 min-h-screen flex flex-col md:flex-row">
+
+  <!-- Left: Controls (35%) -->
+  <section class="w-full md:w-[35%] p-8 space-y-7 bg-surface-dim border-r border-outline-variant/10 md:min-h-screen">
+
+    <div>
+      <p class="text-sm font-medium text-primary mb-1">Рабочая область</p>
+      <h3 class="text-2xl font-extrabold tracking-tight text-on-surface">Конфигурация</h3>
+      <p class="text-on-surface-variant text-sm mt-1">Загрузи файл — получи текст с таймкодами</p>
+    </div>
+
+    <!-- Upload zone -->
+    <div class="space-y-3">
+      <label class="text-xs font-bold uppercase tracking-widest text-on-surface-variant">Файл для обработки</label>
+      <input type="file" id="file-input" accept=".mp4,.mkv,.avi,.mov,.webm,.mp3,.m4a,.wav,.ogg" class="hidden"/>
+
+      <div id="drop-zone"
+           class="relative group flex flex-col items-center justify-center p-8 rounded-2xl border-2 border-dashed border-outline-variant/20 bg-surface-container-low hover:border-primary/40 transition-all cursor-pointer"
+           onclick="document.getElementById('file-input').click()">
+        <div class="absolute -inset-0.5 bg-gradient-to-r from-primary/10 to-primary-container/10 rounded-2xl blur opacity-0 group-hover:opacity-100 transition duration-700 -z-10"></div>
+        <span class="material-symbols-outlined text-4xl text-primary/40 mb-3">cloud_upload</span>
+        <p class="text-sm font-medium text-on-surface">Нажми или перетащи файл</p>
+        <p class="text-xs text-on-surface-variant mt-1">MP4, WEBM, MKV, MP3, WAV, M4A</p>
+      </div>
+
+      <!-- Upload progress -->
+      <div id="upload-progress" class="hidden space-y-1">
+        <div class="flex justify-between text-xs text-on-surface-variant">
+          <span>Загрузка файла...</span>
+          <span id="upload-percent">0%</span>
+        </div>
+        <div class="h-1.5 bg-surface-container-highest rounded-full overflow-hidden">
+          <div id="upload-bar" class="h-full bg-gradient-to-r from-[#6366f1] to-primary-container rounded-full transition-all duration-150" style="width:0%"></div>
+        </div>
+      </div>
+
+      <!-- File card -->
+      <div id="file-card" class="hidden items-center gap-4 p-4 rounded-xl bg-surface-container-high border border-outline-variant/10">
+        <div class="w-10 h-10 rounded-lg bg-surface-container-highest flex items-center justify-center shrink-0">
+          <span id="file-icon" class="material-symbols-outlined text-primary" style="font-variation-settings:'FILL' 1;">movie</span>
+        </div>
+        <div class="flex-1 min-w-0">
+          <p id="file-name" class="text-sm font-medium text-on-surface truncate">—</p>
+          <p id="file-size" class="text-xs text-on-surface-variant mt-0.5">—</p>
+        </div>
+        <button onclick="clearFile()" class="p-1.5 hover:bg-error-container/20 rounded-full transition-colors group shrink-0">
+          <span class="material-symbols-outlined text-on-surface-variant group-hover:text-error text-lg">close</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Model selector -->
+    <div class="space-y-3">
+      <label class="text-xs font-bold uppercase tracking-widest text-on-surface-variant">Модель Whisper</label>
+      <div id="model-list" class="space-y-2"></div>
+    </div>
+
+    <!-- Language selector -->
+    <div class="space-y-3">
+      <label class="text-xs font-bold uppercase tracking-widest text-on-surface-variant">Язык аудио</label>
+      <div id="lang-list" class="grid grid-cols-3 gap-2"></div>
+    </div>
+
+    <!-- Extract audio toggle (скрывается для аудиофайлов) -->
+    <div id="extract-wrapper" class="p-4 rounded-2xl bg-surface-container-high/50 border border-outline-variant/10">
+      <div class="flex items-center justify-between gap-4">
+        <div>
+          <p class="text-sm font-medium text-on-surface">Извлечь аудио перед обработкой</p>
+          <p class="text-xs text-on-surface-variant mt-0.5">Быстрее для видеофайлов. Требует ffmpeg.</p>
+        </div>
+        <label class="relative inline-flex items-center cursor-pointer shrink-0">
+          <input type="checkbox" id="extract-toggle" checked class="sr-only peer"/>
+          <div class="w-11 h-6 bg-surface-container-highest rounded-full peer
+                      peer-checked:bg-primary-container
+                      after:content-[''] after:absolute after:top-[2px] after:left-[2px]
+                      after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all
+                      peer-checked:after:translate-x-full"></div>
+        </label>
+      </div>
+    </div>
+
+    <!-- Action button: Транскрибировать / Остановить -->
+    <button id="action-btn" onclick="startTranscription()"
+            class="w-full relative group py-5 px-6 rounded-2xl overflow-hidden shadow-2xl transition-all active:scale-95 duration-200">
+      <div id="btn-bg" class="absolute inset-0 bg-gradient-to-r from-[#6366f1] to-[#8083ff] transition-all duration-300"></div>
+      <div class="relative flex items-center justify-center gap-3">
+        <span id="btn-icon" class="material-symbols-outlined text-white" style="font-variation-settings:'FILL' 1;">play_circle</span>
+        <span id="btn-label" class="text-lg font-bold text-white tracking-tight">Транскрибировать</span>
+      </div>
+    </button>
+
+  </section>
+
+  <!-- Right: Results (65%) -->
+  <section class="flex-1 bg-surface-container-low flex flex-col" style="min-height: calc(100vh - 4rem)">
+
+    <!-- Status header -->
+    <div class="px-8 py-5 flex items-center justify-between border-b border-outline-variant/10 shrink-0">
+      <div class="flex items-center gap-3 flex-wrap">
+        <div id="status-badge"
+             class="flex items-center gap-2 px-3 py-1 bg-surface-container text-on-surface-variant rounded-full border border-outline-variant/20 text-xs font-bold uppercase tracking-wider">
+          <span class="material-symbols-outlined text-sm">hourglass_empty</span>
+          Ожидание
+        </div>
+        <span id="status-info" class="text-on-surface-variant text-sm font-medium"></span>
+      </div>
+      <span id="speed-badge" class="hidden text-xs font-mono text-primary/60 bg-surface-container px-2 py-1 rounded-lg border border-outline-variant/10"></span>
+    </div>
+
+    <!-- Segments -->
+    <div id="segments-container" class="flex-1 overflow-y-auto px-8 py-6 custom-scrollbar space-y-1">
+      <div id="empty-state" class="flex flex-col items-center justify-center h-64 text-center">
+        <span class="material-symbols-outlined text-5xl text-on-surface-variant/20 mb-4">record_voice_over</span>
+        <p class="text-on-surface-variant/40 text-sm">Загрузи файл и нажми «Транскрибировать»</p>
+      </div>
+    </div>
+
+    <!-- Bottom actions -->
+    <div class="px-8 py-5 border-t border-outline-variant/10 bg-surface-container-low/80 backdrop-blur-md shrink-0">
+      <div class="flex items-center justify-between gap-4">
+        <p id="save-status" class="text-xs text-on-surface-variant"></p>
+        <div id="download-btns" class="hidden items-center gap-2">
+          <button onclick="downloadTXT()"
+                  class="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-surface-container-highest text-primary font-bold text-sm border border-outline-variant/10 hover:bg-surface-bright transition-all active:scale-95">
+            <span class="material-symbols-outlined text-sm">download</span>
+            TXT
+          </button>
+          <button onclick="downloadSRT()"
+                  class="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-surface-container-highest text-primary font-bold text-sm border border-outline-variant/10 hover:bg-surface-bright transition-all active:scale-95">
+            <span class="material-symbols-outlined text-sm">subtitles</span>
+            SRT
+          </button>
+        </div>
+      </div>
+    </div>
+
+  </section>
+</main>
+
+<!-- Decorative gradients -->
+<div class="fixed top-0 right-0 -z-10 w-[500px] h-[500px] bg-primary/5 rounded-full blur-[120px] pointer-events-none"></div>
+<div class="fixed bottom-0 left-64 -z-10 w-[300px] h-[300px] bg-primary-container/5 rounded-full blur-[100px] pointer-events-none"></div>
+
+<!-- ── JavaScript ─────────────────────────────────────────────────────────── -->
+<script>
+// ── State ─────────────────────────────────────────────────────────────────────
+let currentFileId   = null;
+let currentFilename = null;
+let selectedModel   = 'medium';
+let selectedLang    = 'ru';
+let allSegments     = [];
+let eventSource     = null;
+
+// ── Models ────────────────────────────────────────────────────────────────────
+const MODELS = [
+  { id: 'tiny',   label: 'Tiny',   desc: 'очень быстро / базово' },
+  { id: 'base',   label: 'Base',   desc: 'быстро / стандартно' },
+  { id: 'small',  label: 'Small',  desc: 'средне / хорошо' },
+  { id: 'medium', label: 'Medium', desc: 'медленно / отлично — рекомендуется' },
+  { id: 'large',  label: 'Large',  desc: 'максимальная точность / долго' },
+];
+
+function renderModels() {
+  document.getElementById('model-list').innerHTML = MODELS.map(m => {
+    const active = m.id === selectedModel;
+    return `
+      <button onclick="selectModel('${m.id}')"
+        class="flex items-center justify-between p-3 rounded-xl border text-left transition-colors w-full
+               ${active
+                 ? 'border-primary/30 bg-surface-container-high'
+                 : 'border-outline-variant/5 bg-surface-container-low hover:bg-surface-container-high'}">
+        <div>
+          <span class="text-sm font-semibold ${active ? 'text-primary' : 'text-on-surface'}">${m.label}</span>
+          <p class="text-[10px] text-on-surface-variant mt-0.5">${m.desc}</p>
+        </div>
+        <span class="material-symbols-outlined text-sm ${active ? 'text-primary' : 'text-on-surface-variant/20'}"
+              style="font-variation-settings:'FILL' ${active ? 1 : 0};">
+          ${active ? 'check_circle' : 'radio_button_unchecked'}
+        </span>
+      </button>`;
+  }).join('');
+}
+
+function selectModel(id) {
+  selectedModel = id;
+  renderModels();
+}
+
+// ── Languages ─────────────────────────────────────────────────────────────────
+const LANGS = [
+  { id: 'ru',   label: 'Русский' },
+  { id: 'en',   label: 'English' },
+  { id: 'auto', label: 'Авто' },
+];
+
+function renderLangs() {
+  document.getElementById('lang-list').innerHTML = LANGS.map(l => {
+    const active = l.id === selectedLang;
+    return `
+      <button onclick="selectLang('${l.id}')"
+        class="flex items-center justify-center py-2.5 px-3 rounded-xl border text-sm font-semibold transition-colors
+               ${active
+                 ? 'border-primary/30 bg-surface-container-high text-primary'
+                 : 'border-outline-variant/5 bg-surface-container-low text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface'}">
+        ${l.label}
+      </button>`;
+  }).join('');
+}
+
+function selectLang(id) {
+  selectedLang = id;
+  renderLangs();
+}
+
+// ── File Upload ───────────────────────────────────────────────────────────────
+const dropZone  = document.getElementById('drop-zone');
+const fileInput = document.getElementById('file-input');
+
+dropZone.addEventListener('dragover', e => {
+  e.preventDefault();
+  dropZone.classList.add('border-primary/60', 'bg-surface-container');
+});
+dropZone.addEventListener('dragleave', () => {
+  dropZone.classList.remove('border-primary/60', 'bg-surface-container');
+});
+dropZone.addEventListener('drop', e => {
+  e.preventDefault();
+  dropZone.classList.remove('border-primary/60', 'bg-surface-container');
+  if (e.dataTransfer.files[0]) uploadFile(e.dataTransfer.files[0]);
+});
+fileInput.addEventListener('change', () => {
+  if (fileInput.files[0]) uploadFile(fileInput.files[0]);
+});
+
+function uploadFile(file) {
+  const formData = new FormData();
+  formData.append('file', file);
+
+  document.getElementById('upload-progress').classList.remove('hidden');
+  document.getElementById('file-card').classList.add('hidden');
+
+  const xhr = new XMLHttpRequest();
+  xhr.upload.onprogress = e => {
+    if (e.lengthComputable) {
+      const pct = Math.round(e.loaded / e.total * 100);
+      document.getElementById('upload-percent').textContent = pct + '%';
+      document.getElementById('upload-bar').style.width = pct + '%';
+    }
+  };
+  xhr.onload = () => {
+    document.getElementById('upload-progress').classList.add('hidden');
+    if (xhr.status === 200) {
+      const data = JSON.parse(xhr.responseText);
+      currentFileId   = data.file_id;
+      currentFilename = data.filename;
+
+      const audioExts = ['mp3','m4a','wav','ogg','aac','flac','opus','wma'];
+      const ext = data.filename.split('.').pop().toLowerCase();
+      document.getElementById('file-icon').textContent = audioExts.includes(ext) ? 'audiotrack' : 'movie';
+      document.getElementById('file-name').textContent = data.filename;
+      document.getElementById('file-size').textContent = data.size + ' • Готов к обработке';
+      document.getElementById('file-card').classList.remove('hidden');
+      document.getElementById('file-card').style.display = 'flex';
+
+      // Для аудиофайлов скрываем тоггл ffmpeg
+      document.getElementById('extract-wrapper').style.display = data.is_audio ? 'none' : '';
+    } else {
+      alert('Ошибка загрузки файла');
+    }
+  };
+  xhr.open('POST', '/upload');
+  xhr.send(formData);
+}
+
+function clearFile() {
+  currentFileId   = null;
+  currentFilename = null;
+  document.getElementById('file-card').classList.add('hidden');
+  document.getElementById('extract-wrapper').style.display = '';
+  fileInput.value = '';
+}
+
+// ── Transcription ─────────────────────────────────────────────────────────────
+function startTranscription() {
+  if (!currentFileId) { alert('Сначала загрузи файл'); return; }
+  if (eventSource) { eventSource.close(); eventSource = null; }
+
+  allSegments = [];
+  const container = document.getElementById('segments-container');
+  container.innerHTML = '';
+  document.getElementById('download-btns').style.display = 'none';
+  document.getElementById('save-status').textContent = '';
+  document.getElementById('speed-badge').classList.add('hidden');
+  setBtnState('loading');
+  setStatus('processing', 'Запуск...');
+
+  const extractAudio = document.getElementById('extract-toggle').checked;
+  const url = `/stream?file_id=${currentFileId}&model=${selectedModel}&extract_audio=${extractAudio}&language=${selectedLang}`;
+
+  eventSource = new EventSource(url);
+  eventSource.onmessage = e => {
+    const data = JSON.parse(e.data);
+
+    if (data.type === 'status') {
+      setStatus('processing', data.message);
+
+    } else if (data.type === 'segment') {
+      allSegments.push(data);
+      appendSegment(data);
+      const speedStr = data.speed ? ` • ${data.speed} real-time` : '';
+      setStatus('processing', `Сегментов: ${allSegments.length}${speedStr}`);
+
+    } else if (data.type === 'done') {
+      setStatus('done', `${data.language} (${data.probability}) — ${data.segments} сегм.`);
+      if (data.speed) {
+        const badge = document.getElementById('speed-badge');
+        badge.textContent = `${data.speed} real-time`;
+        badge.classList.remove('hidden');
+      }
+      document.getElementById('download-btns').style.display = 'flex';
+      document.getElementById('save-status').textContent = 'Транскрипция завершена';
+      setBtnState('idle');
+      eventSource.close();
+
+    } else if (data.type === 'cancelled') {
+      setStatus('idle', 'Транскрибация отменена');
+      setBtnState('idle');
+      eventSource.close();
+
+    } else if (data.type === 'error') {
+      setStatus('error', data.message);
+      setBtnState('idle');
+      eventSource.close();
+    }
+  };
+  eventSource.onerror = () => {
+    if (eventSource.readyState === EventSource.CLOSED) return;
+    setStatus('error', 'Ошибка соединения');
+    setBtnState('idle');
+    eventSource.close();
+  };
+}
+
+function stopTranscription() {
+  if (!currentFileId) return;
+  fetch(`/cancel?file_id=${currentFileId}`, { method: 'POST' });
+  document.getElementById('btn-icon').textContent = 'hourglass_empty';
+  document.getElementById('btn-label').textContent = 'Отменяю...';
+  document.getElementById('action-btn').disabled = true;
+}
+
+// ── Append segment ────────────────────────────────────────────────────────────
+function appendSegment(seg) {
+  const container = document.getElementById('segments-container');
+
+  const div = document.createElement('div');
+  div.className = 'group relative flex gap-6 items-start hover:bg-surface-container-high/30 px-4 py-3 -mx-4 rounded-2xl transition-all';
+  div.innerHTML = `
+    <div class="w-32 shrink-0 pt-0.5">
+      <span class="inline-block px-2 py-1 rounded bg-surface-container-highest text-[10px] font-mono text-on-surface-variant/70 border border-outline-variant/10 tracking-tighter whitespace-nowrap">
+        ${seg.start}<br/>${seg.end}
+      </span>
+    </div>
+    <div class="flex-1 min-w-0">
+      <p class="text-[15px] leading-relaxed text-on-surface">${escHtml(seg.text)}</p>
+    </div>
+    <button class="copy-btn opacity-0 group-hover:opacity-100 transition-opacity p-1.5 hover:bg-surface-container-highest rounded-lg shrink-0 mt-0.5" title="Копировать текст">
+      <span class="material-symbols-outlined text-sm text-on-surface-variant">content_copy</span>
+    </button>`;
+
+  // Привязываем текст через замыкание — безопасно, без атрибутов
+  const copyBtn = div.querySelector('.copy-btn');
+  copyBtn.addEventListener('click', () => {
+    navigator.clipboard.writeText(seg.text).then(() => {
+      const icon = copyBtn.querySelector('.material-symbols-outlined');
+      icon.textContent = 'check';
+      icon.style.color = '#4ade80';
+      setTimeout(() => { icon.textContent = 'content_copy'; icon.style.color = ''; }, 1500);
+    });
+  });
+
+  container.appendChild(div);
+  div.scrollIntoView({ behavior: 'smooth', block: 'end' });
+}
+
+// ── Status badge ──────────────────────────────────────────────────────────────
+function setStatus(type, message) {
+  const badge = document.getElementById('status-badge');
+  const info  = document.getElementById('status-info');
+  const cfg = {
+    processing: { cls: 'bg-blue-500/10 text-blue-400 border-blue-500/20',   icon: 'autorenew',     spin: true,  label: 'Обработка' },
+    done:       { cls: 'bg-green-500/10 text-green-400 border-green-500/20', icon: 'check_circle',  spin: false, label: 'Готово'    },
+    error:      { cls: 'bg-red-500/10 text-red-400 border-red-500/20',       icon: 'error',         spin: false, label: 'Ошибка'    },
+    idle:       { cls: 'bg-surface-container text-on-surface-variant border-outline-variant/20', icon: 'hourglass_empty', spin: false, label: 'Ожидание' },
+  }[type] || { cls: 'bg-surface-container text-on-surface-variant border-outline-variant/20', icon: 'hourglass_empty', spin: false, label: 'Ожидание' };
+
+  badge.className = `flex items-center gap-2 px-3 py-1 rounded-full border text-xs font-bold uppercase tracking-wider ${cfg.cls}`;
+  badge.innerHTML = `<span class="material-symbols-outlined text-sm${cfg.spin ? ' spin' : ''}" style="font-variation-settings:'FILL' 1;">${cfg.icon}</span>${cfg.label}`;
+  info.textContent = message || '';
+}
+
+// ── Button state ──────────────────────────────────────────────────────────────
+function setBtnState(state) {
+  const btn   = document.getElementById('action-btn');
+  const bg    = document.getElementById('btn-bg');
+  const icon  = document.getElementById('btn-icon');
+  const label = document.getElementById('btn-label');
+
+  if (state === 'loading') {
+    btn.onclick = stopTranscription;
+    bg.className = 'absolute inset-0 bg-gradient-to-r from-red-800 to-red-600 transition-all duration-300';
+    icon.textContent = 'stop_circle';
+    icon.classList.remove('spin');
+    label.textContent = 'Остановить';
+    btn.disabled = false;
+    btn.style.opacity = '1';
+  } else {
+    btn.onclick = startTranscription;
+    bg.className = 'absolute inset-0 bg-gradient-to-r from-[#6366f1] to-[#8083ff] transition-all duration-300';
+    icon.textContent = 'play_circle';
+    icon.classList.remove('spin');
+    label.textContent = 'Транскрибировать';
+    btn.disabled = false;
+    btn.style.opacity = '1';
+  }
+}
+
+// ── Download ──────────────────────────────────────────────────────────────────
+function downloadTXT() {
+  if (!allSegments.length) return;
+  const text = allSegments.map(s => `[${s.start} --> ${s.end}] ${s.text}`).join('\n');
+  triggerDownload(text, baseName() + '.txt');
+  document.getElementById('save-status').textContent = 'TXT сохранён в папку Загрузки';
+}
+
+function downloadSRT() {
+  if (!allSegments.length) return;
+  const lines = allSegments.map((s, i) =>
+    `${i + 1}\n${toSrtTime(s.start_s)} --> ${toSrtTime(s.end_s)}\n${s.text}`
+  );
+  triggerDownload(lines.join('\n\n'), baseName() + '.srt');
+  document.getElementById('save-status').textContent = 'SRT сохранён в папку Загрузки';
+}
+
+function triggerDownload(text, filename) {
+  const blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href     = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function baseName() {
+  return currentFilename ? currentFilename.replace(/\.[^/.]+$/, '') : 'transcript';
+}
+
+function toSrtTime(seconds) {
+  const ms = Math.round((seconds % 1) * 1000);
+  const s  = Math.floor(seconds) % 60;
+  const m  = Math.floor(seconds / 60) % 60;
+  const h  = Math.floor(seconds / 3600);
+  return `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')},${String(ms).padStart(3,'0')}`;
+}
+
+// ── Utils ─────────────────────────────────────────────────────────────────────
+function escHtml(t) {
+  return t.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+// ── Init ──────────────────────────────────────────────────────────────────────
+renderModels();
+renderLangs();
+</script>
+</body>
+</html>
