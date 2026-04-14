@@ -1,0 +1,16 @@
+# Shell-скрипты — всегда LF (иначе bash на Mac/Linux не запустит)
+*.sh        text eol=lf
+*.command   text eol=lf
+
+# Python и текст — авто
+*.py        text eol=lf
+*.html      text eol=lf
+*.md        text eol=lf
+*.txt       text eol=lf
+*.example   text eol=lf
+
+# Бинарники — без изменений
+*.png       binary
+*.jpg       binary
+*.ttf       binary
+*.zip       binary
