@@ -355,6 +355,9 @@ function uploadFile(file) {
 }
 
 function clearFile() {
+  if (currentFileId && eventSource) {
+    stopTranscription();
+  }
   currentFileId   = null;
   currentFilename = null;
   document.getElementById('file-card').classList.add('hidden');

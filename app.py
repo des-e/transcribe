@@ -86,14 +86,27 @@ async def index():
 # Загрузка файла
 # ──────────────────────────────────────────────────────────────────────────────
 
+MAX_UPLOAD_MB = 2048  # 2 GB
+
 @app.post("/upload")
 async def upload_file(file: UploadFile = File(...)):
     file_id = str(uuid.uuid4())
     ext = Path(file.filename).suffix.lower()
     dest = UPLOADS_DIR / f"{file_id}{ext}"
-    content = await file.read()
-    dest.write_bytes(content)
-    size_mb = len(content) / 1024 / 1024
+
+    size = 0
+    with dest.open("wb") as f:
+        while chunk := await file.read(1024 * 1024):  # читаем по 1 MB
+            size += len(chunk)
+            if size > MAX_UPLOAD_MB * 1024 * 1024:
+                dest.unlink(missing_ok=True)
+                return JSONResponse(
+                    {"error": f"Файл слишком большой. Максимум {MAX_UPLOAD_MB} MB."},
+                    status_code=413,
+                )
+            f.write(chunk)
+
+    size_mb = size / 1024 / 1024
     return JSONResponse({
         "file_id": file_id,
         "filename": file.filename,
@@ -266,5 +279,5 @@ def _fmt(seconds: float) -> str:
 # ──────────────────────────────────────────────────────────────────────────────
 
 if __name__ == "__main__":
-    webbrowser.open("http://localhost:8000")
+    threading.Timer(1.0, lambda: webbrowser.open("http://localhost:8000")).start()
     uvicorn.run(app, host="127.0.0.1", port=8000)

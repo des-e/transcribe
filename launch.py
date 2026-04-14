@@ -220,10 +220,8 @@ def warm_up_model():
         return
 
     script = (
-        "import os; "
-        "os.environ['HF_HUB_VERBOSITY'] = 'error'; "
         f"from faster_whisper import WhisperModel; "
-        f"print('[→] Загружаю...'); "
+        f"print('[→] Загружаю модель (прогресс ниже)...'); "
         f"WhisperModel('{DEFAULT_MODEL}', device='cpu', compute_type='int8'); "
         f"print('[✓] Модель загружена!')"
     )
