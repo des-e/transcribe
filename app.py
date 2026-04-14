@@ -52,8 +52,8 @@ executor = ThreadPoolExecutor(max_workers=2)
 _loaded_model: tuple[str, Any] | None = None
 _model_lock = threading.Lock()
 
-# Флаги отмены: file_id → Event
-_cancel_flags: dict[str, threading.Event] = {}
+# Активные транскрибации: file_id → (cancel_event, queue)
+_active: dict[str, tuple[threading.Event, asyncio.Queue]] = {}
 
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -108,8 +108,12 @@ async def upload_file(file: UploadFile = File(...)):
 
 @app.post("/cancel")
 async def cancel_transcription(file_id: str):
-    if file_id in _cancel_flags:
-        _cancel_flags[file_id].set()
+    if file_id in _active:
+        event, queue = _active[file_id]
+        event.set()
+        # Сразу закрываем SSE-стрим — не ждём пока поток дойдёт до проверки
+        await queue.put({"type": "cancelled"})
+        await queue.put(None)
     return JSONResponse({"ok": True})
 
 
@@ -137,9 +141,8 @@ async def stream_transcription(
         extract_audio = False
 
     cancel_event = threading.Event()
-    _cancel_flags[file_id] = cancel_event
-
     queue: asyncio.Queue = asyncio.Queue()
+    _active[file_id] = (cancel_event, queue)
     loop = asyncio.get_running_loop()
 
     def _run():
@@ -223,8 +226,9 @@ async def stream_transcription(
         finally:
             if audio_tmp:
                 Path(audio_tmp).unlink(missing_ok=True)
-            file_path.unlink(missing_ok=True)  # удалить загруженный файл
-            _cancel_flags.pop(file_id, None)
+            file_path.unlink(missing_ok=True)
+            _active.pop(file_id, None)
+            # None-терминатор закрывает генератор; если cancel уже его отправил — лишний None безвреден
             loop.call_soon_threadsafe(queue.put_nowait, None)
 
     loop.run_in_executor(executor, _run)
