@@ -114,15 +114,18 @@ def check_for_updates():
             cwd=HERE, capture_output=True, text=True,
         ).stdout.strip()
 
-        print(f"[→] Найдено обновление, применяю...")
+        print("[→] Найдено обновление, применяю...")
 
-        pull = subprocess.run(
-            ["git", "pull", "origin", "master", "--quiet"],
+        # reset --hard надёжнее чем pull: не требует чистого рабочего дерева
+        # и не зависит от настроек remote origin
+        reset = subprocess.run(
+            ["git", "reset", "--hard", "origin/master"],
             cwd=HERE, capture_output=True, text=True,
         )
 
-        if pull.returncode != 0:
-            print("[~] Не удалось обновить, запускаю текущую версию")
+        if reset.returncode != 0:
+            print(f"[~] Не удалось обновить: {reset.stderr.strip()}")
+            print("    Запускаю текущую версию.")
             return
 
         print("[✓] Обновление применено!")
