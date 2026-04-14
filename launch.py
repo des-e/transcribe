@@ -68,15 +68,9 @@ def check_for_updates():
     print("[→] Проверяю обновления...")
 
     try:
-        # Обновляем remote с токеном
-        subprocess.run(
-            ["git", "remote", "set-url", "origin", _ro],
-            cwd=HERE, capture_output=True,
-        )
-
-        # Fetch с таймаутом — не зависает если нет интернета
+        # Fetch напрямую по URL — не трогаем remote origin (чтобы не сломать push)
         fetch = subprocess.run(
-            ["git", "fetch", "origin", "master", "--quiet"],
+            ["git", "fetch", _ro, "master:refs/remotes/origin/master", "--quiet"],
             cwd=HERE, capture_output=True, timeout=8,
         )
         if fetch.returncode != 0:
