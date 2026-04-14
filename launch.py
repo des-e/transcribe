@@ -19,7 +19,7 @@ HERE   = Path(__file__).parent
 SYSTEM = platform.system()  # "Windows", "Darwin", "Linux"
 
 # Доступ к репозиторию (read-only)
-_rs = "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"
+_rs = "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"
 _ro = f"https://{_rs}@github.com/des-e/transcribe.git"
 
 
