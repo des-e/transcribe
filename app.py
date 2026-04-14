@@ -13,6 +13,10 @@
 Запуск: start.bat (Windows) / start.command (Mac) / ./start.sh (Linux)
 Откроется: http://localhost:8000
 """
+import os
+os.environ.setdefault("HF_HUB_VERBOSITY", "error")
+os.environ.setdefault("TOKENIZERS_PARALLELISM", "false")
+
 import asyncio
 import json
 import subprocess
