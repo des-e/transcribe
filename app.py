@@ -60,13 +60,28 @@ _active: dict[str, tuple[threading.Event, asyncio.Queue]] = {}
 # Жизненный цикл приложения
 # ──────────────────────────────────────────────────────────────────────────────
 
+def _preload_model():
+    """Загружает модель в RAM при старте — чтобы первая транскрибация была мгновенной."""
+    global _loaded_model
+    try:
+        from faster_whisper import WhisperModel
+        with _model_lock:
+            if _loaded_model is None:
+                _loaded_model = ("medium", WhisperModel("medium", device="cpu", compute_type="int8"))
+    except Exception:
+        pass  # Не блокируем запуск если что-то пошло не так
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Startup: удалить загруженные файлы старше 24 часов
+    # Удалить загруженные файлы старше 24 часов
     cutoff = time.time() - 86_400
     for f in UPLOADS_DIR.iterdir():
         if f.is_file() and f.stat().st_mtime < cutoff:
             f.unlink(missing_ok=True)
+
+    # Загрузить модель в фоне — готова к моменту первого запроса
+    asyncio.get_event_loop().run_in_executor(executor, _preload_model)
     yield
 
 
