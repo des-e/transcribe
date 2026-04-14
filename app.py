@@ -33,7 +33,6 @@ import time
 import uuid
 import webbrowser
 from contextlib import asynccontextmanager
-from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from typing import Any
 
@@ -69,8 +68,6 @@ AUDIO_EXTENSIONS = {".mp3", ".m4a", ".wav", ".ogg", ".aac", ".flac", ".wma", ".o
 
 MAX_UPLOAD_MB = 2048  # 2 GB
 
-executor = ThreadPoolExecutor(max_workers=2)
-
 # Кеш faster-whisper модели (только на не-Apple-Silicon)
 _loaded_model: tuple[str, Any] | None = None
 _model_lock = threading.Lock()
@@ -103,7 +100,8 @@ async def lifespan(app: FastAPI):
     for f in UPLOADS_DIR.iterdir():
         if f.is_file() and f.stat().st_mtime < cutoff:
             f.unlink(missing_ok=True)
-    asyncio.get_event_loop().run_in_executor(executor, _preload_model)
+    t = threading.Thread(target=_preload_model, daemon=True)
+    t.start()
     yield
 
 
@@ -242,7 +240,8 @@ async def stream_transcription(
             _active.pop(file_id, None)
             loop.call_soon_threadsafe(queue.put_nowait, None)
 
-    loop.run_in_executor(executor, _run)
+    t = threading.Thread(target=_run, daemon=True)
+    t.start()
 
     async def _generate():
         while True:
