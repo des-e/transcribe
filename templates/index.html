@@ -279,6 +279,7 @@ let selectedLang    = 'ru';
 let allSegments     = [];
 let eventSource     = null;
 let activityItems   = [];
+let isCancelling    = false;
 
 // ── Backend info ───────────────────────────────────────────────────────────
 fetch('/info').then(r => r.json()).then(data => {
@@ -446,6 +447,7 @@ function clearFile() {
 // ── Transcription ──────────────────────────────────────────────────────────
 function startTranscription() {
   if (!currentFileId) { addActivity('Сначала загрузи файл'); return; }
+  isCancelling = false;
   if (eventSource)    { eventSource.close(); eventSource = null; }
 
   allSegments = [];
@@ -489,6 +491,7 @@ function startTranscription() {
       showPlayer(currentFileId);
 
     } else if (data.type === 'cancelled') {
+      isCancelling = false;
       setStatus('idle', '');
       setBtnState('idle');
       eventSource.close();
@@ -503,16 +506,28 @@ function startTranscription() {
   };
 
   eventSource.onerror = () => {
-    if (eventSource.readyState === EventSource.CLOSED) return;
+    if (eventSource.readyState === EventSource.CLOSED) {
+      // SSE закрылось — если шла отмена, сбрасываем кнопку
+      if (isCancelling) {
+        isCancelling = false;
+        setBtnState('idle');
+        setStatus('idle', '');
+        eventSource = null;
+        addActivity('Транскрибация отменена');
+      }
+      return;
+    }
     setStatus('error', 'Ошибка соединения');
     setBtnState('idle');
     eventSource.close();
+    eventSource = null;
     addActivity('Соединение разорвано');
   };
 }
 
 function stopTranscription() {
   if (!currentFileId) return;
+  isCancelling = true;
   fetch(`/cancel?file_id=${currentFileId}`, { method: 'POST' });
   document.getElementById('btn-label').textContent = 'Отменяю...';
   document.getElementById('btn-icon').textContent  = 'hourglass_empty';
