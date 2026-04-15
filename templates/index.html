@@ -45,8 +45,20 @@
   @keyframes blink { 0%,100% { opacity: 1; } 50% { opacity: .25; } }
   .blink { animation: blink 1.6s ease-in-out infinite; }
   .seg-row { border-left: 2px solid transparent; margin-left: -2px; padding-left: 2px; transition: background .15s, border-color .15s; border-radius: 3px; }
-  .seg-row:hover { background: rgba(107,125,115,.05); cursor: pointer; }
+  .seg-row:hover { background: rgba(107,125,115,.05); }
   .seg-active { background: rgba(107,125,115,.09) !important; border-left-color: rgba(107,125,115,.5) !important; }
+  .seg-ts { cursor: pointer; }
+  .seg-text { cursor: text; outline: none; border-radius: 3px; transition: background .15s; }
+  .seg-text-editing {
+    background: rgba(107,125,115,.07);
+    box-shadow: 0 0 0 1px rgba(107,125,115,.25);
+    caret-color: #bacac0;
+    padding: 2px 6px;
+    margin: -2px -6px;
+    border-radius: 3px;
+  }
+  @keyframes flash-saved { 0%,100% { color: inherit; } 30% { color: #6B7D73; } }
+  .flash-saved { animation: flash-saved .6s ease; }
 </style>
 </head>
 <body class="antialiased min-h-screen">
@@ -509,11 +521,13 @@ function stopTranscription() {
 
 // ── Append segment ─────────────────────────────────────────────────────────
 function appendSegment(seg) {
+  const idx = allSegments.length - 1; // уже добавлен в allSegments до вызова
   const container = document.getElementById('segments-container');
   const div = document.createElement('div');
   div.className = 'seg-row group flex gap-4 items-start py-2.5';
   div.dataset.startS = seg.start_s;
   div.dataset.endS   = seg.end_s;
+  div.dataset.idx    = idx;
   div.innerHTML = `
     <button class="copy-btn mt-0.5 p-1.5 rounded shrink-0
                    opacity-0 group-hover:opacity-100 transition-all
@@ -521,21 +535,28 @@ function appendSegment(seg) {
                    border border-transparent hover:border-border/20" title="Копировать">
       <span class="material-symbols-outlined text-sm">content_copy</span>
     </button>
-    <div class="w-20 shrink-0 pt-px select-none">
+    <div class="seg-ts w-20 shrink-0 pt-px select-none" title="Перейти к этому моменту">
       <span class="text-[10px] font-inter font-medium text-muted/35 tracking-widest block">${seg.start}</span>
       <span class="text-[10px] font-inter text-muted/20 block mt-0.5">${seg.end}</span>
     </div>
     <div class="flex-1 min-w-0">
-      <p class="text-[15px] leading-relaxed font-light text-primary/85 selection:bg-accent/20">${escHtml(seg.text)}</p>
+      <p class="seg-text text-[15px] leading-relaxed font-light text-primary/85 selection:bg-accent/20"
+         title="Нажми для редактирования">${escHtml(seg.text)}</p>
     </div>`;
 
-  div.addEventListener('click', e => {
-    if (e.target.closest('.copy-btn')) return;
-    seekToSegment(seg.start_s);
+  // Временная метка → перемотка аудио
+  div.querySelector('.seg-ts').addEventListener('click', () => seekToSegment(seg.start_s));
+
+  // Текст → редактирование
+  div.querySelector('.seg-text').addEventListener('click', e => {
+    e.stopPropagation();
+    startEdit(div, parseInt(div.dataset.idx));
   });
 
+  // Кнопка копирования
   div.querySelector('.copy-btn').addEventListener('click', () => {
-    navigator.clipboard.writeText(seg.text).then(() => {
+    const i = parseInt(div.dataset.idx);
+    navigator.clipboard.writeText(allSegments[i].text).then(() => {
       const btn  = div.querySelector('.copy-btn');
       const icon = btn.querySelector('.material-symbols-outlined');
       icon.textContent = 'check';
@@ -551,6 +572,68 @@ function appendSegment(seg) {
 
   const area = document.getElementById('transcript-area');
   area.scrollTo({ top: area.scrollHeight, behavior: 'smooth' });
+}
+
+// ── Edit segment ───────────────────────────────────────────────────────────
+let _editingIdx = null;
+
+function startEdit(div, idx) {
+  if (_editingIdx !== null) return; // только одно редактирование одновременно
+  _editingIdx = idx;
+
+  const p        = div.querySelector('.seg-text');
+  const original = allSegments[idx].text;
+  let   done     = false;
+
+  p.contentEditable = 'true';
+  p.classList.add('seg-text-editing');
+  p.focus();
+
+  // Выделить весь текст
+  const sel = window.getSelection();
+  const range = document.createRange();
+  range.selectNodeContents(p);
+  sel.removeAllRanges();
+  sel.addRange(range);
+
+  function commit() {
+    if (done) return;
+    done = true;
+    const newText = p.textContent.trim();
+    p.contentEditable = 'false';
+    p.classList.remove('seg-text-editing');
+    allSegments[idx].text = newText || original;
+    p.innerHTML = escHtml(allSegments[idx].text);
+    if (newText && newText !== original) {
+      p.classList.add('flash-saved');
+      p.addEventListener('animationend', () => p.classList.remove('flash-saved'), { once: true });
+    }
+    _editingIdx = null;
+    cleanup();
+  }
+
+  function revert() {
+    if (done) return;
+    done = true;
+    p.contentEditable = 'false';
+    p.classList.remove('seg-text-editing');
+    p.innerHTML = escHtml(original);
+    _editingIdx = null;
+    cleanup();
+  }
+
+  function onKeydown(e) {
+    if (e.key === 'Enter')  { e.preventDefault(); commit(); }
+    if (e.key === 'Escape') { e.preventDefault(); revert(); }
+  }
+
+  function cleanup() {
+    p.removeEventListener('blur',    commit);
+    p.removeEventListener('keydown', onKeydown);
+  }
+
+  p.addEventListener('blur',    commit);
+  p.addEventListener('keydown', onKeydown);
 }
 
 // ── Status badge ───────────────────────────────────────────────────────────
