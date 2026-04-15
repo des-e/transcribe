@@ -71,7 +71,7 @@ TEMPLATES_DIR = Path(__file__).parent / "templates"
 
 AUDIO_EXTENSIONS = {".mp3", ".m4a", ".wav", ".ogg", ".aac", ".flac", ".wma", ".opus"}
 
-MAX_UPLOAD_MB = 2048  # 2 GB
+MAX_UPLOAD_MB = 4096  # 4 GB
 
 # Кеш faster-whisper модели (только на не-Apple-Silicon)
 _loaded_model: tuple[str, Any] | None = None
