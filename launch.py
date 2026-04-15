@@ -162,6 +162,38 @@ def ffmpeg_available() -> bool:
         return False
 
 
+def find_brew() -> str | None:
+    """Ищет brew в PATH и стандартных местах установки Homebrew."""
+    brew = shutil.which("brew")
+    if brew:
+        return brew
+    # После установки Homebrew PATH текущего процесса ещё не обновлён —
+    # проверяем стандартные пути напрямую
+    for path in ["/opt/homebrew/bin/brew", "/usr/local/bin/brew"]:
+        if Path(path).exists():
+            # Добавляем каталог brew в PATH текущего процесса
+            brew_dir = str(Path(path).parent)
+            os.environ["PATH"] = brew_dir + ":" + os.environ.get("PATH", "")
+            return path
+    return None
+
+
+def install_brew() -> str | None:
+    """Устанавливает Homebrew. Возвращает путь к brew или None при ошибке."""
+    print("[→] Устанавливаю Homebrew...")
+    print("    Сейчас потребуется ввести пароль администратора.")
+    print()
+    env = {**os.environ, "NONINTERACTIVE": "1"}
+    result = subprocess.run(
+        ["/bin/bash", "-c",
+         "curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh | bash"],
+        env=env,
+    )
+    if result.returncode != 0:
+        return None
+    return find_brew()
+
+
 def handle_ffmpeg():
     try:
         _handle_ffmpeg()
@@ -182,48 +214,57 @@ def _handle_ffmpeg():
     print()
 
     if SYSTEM == "Windows":
-        print("    Установка через winget:")
-        print("      winget install Gyan.FFmpeg")
-        print()
-        if input("    Установить сейчас? [y/N]: ").strip().lower() == "y":
-            result = subprocess.run(["winget", "install", "--id", "Gyan.FFmpeg", "-e"])
-            if result.returncode == 0:
-                print("\n[✓] ffmpeg установлен.")
-                print("    Перезапусти start.bat — ffmpeg появится в PATH после перезапуска.")
-            else:
-                print("\n[!] Не удалось установить автоматически.")
-                print("    Установи вручную: https://ffmpeg.org/download.html")
-            _pause_exit()
+        print("[→] Устанавливаю ffmpeg через winget...")
+        result = subprocess.run(["winget", "install", "--id", "Gyan.FFmpeg", "-e"])
+        if result.returncode == 0:
+            print("[✓] ffmpeg установлен.")
+            print("    Перезапусти start.bat — ffmpeg появится в PATH после перезапуска.")
+        else:
+            print("[!] Не удалось установить автоматически.")
+            print("    Установи вручную: https://ffmpeg.org/download.html")
+        _pause_exit()
 
     elif SYSTEM == "Darwin":
-        print("    Вариант 1 — Homebrew:")
-        print("      brew install ffmpeg")
+        brew = find_brew()
+
+        if not brew:
+            print("[→] Homebrew не найден. Устанавливаю автоматически...")
+            print("    (Homebrew нужен для установки ffmpeg)")
+            print()
+            brew = install_brew()
+            if not brew:
+                print("[!] Не удалось установить Homebrew.")
+                print("    Установи вручную: https://brew.sh")
+                print("    Или скачай ffmpeg: https://evermeet.cx/ffmpeg/")
+                print()
+                if input("    Продолжить без ffmpeg (только аудиофайлы)? [y/N]: ").strip().lower() != "y":
+                    _pause_exit()
+                print("[~] Продолжаем без ffmpeg — видеофайлы недоступны")
+                return
+            print("[✓] Homebrew установлен")
+            print()
+
+        print("[→] Устанавливаю ffmpeg через Homebrew...")
+        if subprocess.run([brew, "install", "ffmpeg"]).returncode == 0:
+            print("[✓] ffmpeg установлен")
+            return
+        print("[!] Не удалось установить ffmpeg.")
+        print("    Попробуй вручную: brew install ffmpeg")
+        print("    Или скачай бинарник: https://evermeet.cx/ffmpeg/")
         print()
-        print("    Вариант 2 — готовый бинарник (без Homebrew):")
-        print("      https://evermeet.cx/ffmpeg/  → скачать → распаковать → переместить в /usr/local/bin/")
-        print()
-        brew_ok = bool(shutil.which("brew"))
-        if brew_ok:
-            if input("    Установить через Homebrew сейчас? [y/N]: ").strip().lower() == "y":
-                if subprocess.run(["brew", "install", "ffmpeg"]).returncode == 0:
-                    print("[✓] ffmpeg установлен")
-                    return
-                print("[!] Не удалось. Попробуй вручную.")
-        else:
-            print("    Homebrew не найден.")
-            print("    Быстрая установка: https://brew.sh")
-            print("    Или скачай бинарник: https://evermeet.cx/ffmpeg/")
+        if input("    Продолжить без ffmpeg (только аудиофайлы)? [y/N]: ").strip().lower() != "y":
+            _pause_exit()
+        print("[~] Продолжаем без ffmpeg — видеофайлы недоступны")
 
     else:  # Linux
+        print("    Установи ffmpeg вручную:")
         print("      sudo apt install ffmpeg        # Ubuntu / Debian")
         print("      sudo dnf install ffmpeg        # Fedora")
         print("      sudo pacman -S ffmpeg          # Arch")
-
-    print()
-    if input("    Продолжить без ffmpeg (только аудиофайлы)? [y/N]: ").strip().lower() != "y":
-        print("Запусти снова после установки ffmpeg.")
-        _pause_exit()
-    print("[~] Продолжаем без ffmpeg — видеофайлы недоступны")
+        print()
+        if input("    Продолжить без ffmpeg (только аудиофайлы)? [y/N]: ").strip().lower() != "y":
+            _pause_exit()
+        print("[~] Продолжаем без ffmpeg — видеофайлы недоступны")
 
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -332,8 +373,9 @@ def _warm_up_model():
             f"print('[✓] Модель загружена!')"
         )
 
+    with_pkg = "huggingface-hub" if IS_APPLE_SILICON else "faster-whisper"
     result = subprocess.run(
-        [uv, "run", "--python", "3.11", "-c", script],
+        [uv, "run", "--python", "3.11", "--with", with_pkg, "python", "-c", script],
         cwd=HERE,
     )
 
