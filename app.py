@@ -39,6 +39,7 @@ from typing import Any
 import uvicorn
 from fastapi import FastAPI, File, Request, UploadFile
 from fastapi.responses import FileResponse, HTMLResponse, StreamingResponse, JSONResponse
+from fastapi.staticfiles import StaticFiles
 
 # ──────────────────────────────────────────────────────────────────────────────
 # Платформа
@@ -111,6 +112,7 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(lifespan=lifespan)
+app.mount("/static", StaticFiles(directory=str(Path(__file__).parent / "static")), name="static")
 
 
 # ──────────────────────────────────────────────────────────────────────────────
