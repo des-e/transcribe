@@ -188,7 +188,8 @@ function startTranscription() {
 
   const url = `/stream?file_id=${currentFileId}&model=${selectedModel}`
             + `&extract_audio=${document.getElementById('extract-toggle').checked}`
-            + `&language=${selectedLang}`;
+            + `&language=${selectedLang}`
+            + `&filename=${encodeURIComponent(currentFilename || 'transcript')}`;
 
   eventSource = new EventSource(url);
   eventSource.onmessage = e => {
@@ -557,22 +558,90 @@ function toggleTheme() {
 const NAV_ACTIVE   = 'text-primary bg-surface/50 border-l-2 border-accent';
 const NAV_INACTIVE = 'text-muted/50 border-l-2 border-transparent hover:text-primary hover:bg-surface/30';
 
+const VIEWS = ['transcribe', 'history', 'analysis'];
+
 function showView(name) {
-  document.getElementById('view-transcribe').classList.toggle('hidden', name !== 'transcribe');
-  document.getElementById('view-analysis').classList.toggle('hidden',   name !== 'analysis');
-
-  const tNav = document.getElementById('nav-transcribe');
-  const aNav = document.getElementById('nav-analysis');
-  tNav.className = `flex items-center gap-3 py-2.5 px-3 rounded text-sm font-semibold transition-all ${name === 'transcribe' ? NAV_ACTIVE : NAV_INACTIVE}`;
-  aNav.className = `flex items-center gap-3 py-2.5 px-3 rounded text-sm font-semibold transition-all ${name === 'analysis'   ? NAV_ACTIVE : NAV_INACTIVE}`;
-
-  const tIcon = tNav.querySelector('.material-symbols-outlined');
-  const aIcon = aNav.querySelector('.material-symbols-outlined');
-  tIcon.classList.toggle('text-accent', name === 'transcribe');
-  aIcon.classList.toggle('text-accent', name === 'analysis');
+  VIEWS.forEach(v => {
+    document.getElementById(`view-${v}`).classList.toggle('hidden', v !== name);
+    const nav  = document.getElementById(`nav-${v}`);
+    const icon = nav.querySelector('.material-symbols-outlined');
+    nav.className = `flex items-center gap-3 py-2.5 px-3 rounded text-sm font-semibold transition-all ${v === name ? NAV_ACTIVE : NAV_INACTIVE}`;
+    icon.classList.toggle('text-accent', v === name);
+  });
 
   if (name === 'analysis') renderAnalysisView();
+  if (name === 'history')  loadHistoryView();
   return false;
+}
+
+// ── История транскрибаций ──────────────────────────────────────────────────
+async function loadHistoryView() {
+  const list    = document.getElementById('history-list');
+  const empty   = document.getElementById('history-empty');
+  const spinner = document.getElementById('history-spinner');
+
+  list.innerHTML = '';
+  empty.classList.add('hidden');
+  spinner.classList.remove('hidden');
+
+  try {
+    const r    = await fetch('/history');
+    const data = await r.json();
+    spinner.classList.add('hidden');
+
+    if (!data.length) {
+      empty.classList.remove('hidden');
+      return;
+    }
+
+    list.innerHTML = data.map(e => `
+      <div class="flex items-center justify-between py-3 px-4 rounded border border-border/15
+                  bg-surface/20 hover:bg-surface/40 transition-colors group gap-3">
+        <div class="flex items-center gap-3 min-w-0">
+          <span class="material-symbols-outlined text-muted/30 text-base shrink-0">audio_file</span>
+          <div class="min-w-0">
+            <p class="text-[12px] font-inter font-semibold text-primary truncate">${escHtml(e.filename)}</p>
+            <p class="text-[9px] font-inter text-muted/30 mt-0.5">${e.date} · ${e.language} · ${e.segments} сегм.</p>
+          </div>
+        </div>
+        <div class="flex items-center gap-1.5 shrink-0">
+          <a href="/history/${e.id}/txt"
+             class="px-2.5 py-1.5 rounded border border-border/20 text-[10px] font-inter font-semibold
+                    text-muted/50 hover:text-primary hover:border-accent/40 hover:bg-surface transition-all"
+             download>TXT</a>
+          <a href="/history/${e.id}/srt"
+             class="px-2.5 py-1.5 rounded border border-border/20 text-[10px] font-inter font-semibold
+                    text-muted/50 hover:text-primary hover:border-accent/40 hover:bg-surface transition-all"
+             download>SRT</a>
+          ${e.has_audio ? `
+          <a href="/history/${e.id}/audio"
+             class="px-2.5 py-1.5 rounded border border-border/20 text-[10px] font-inter font-semibold
+                    text-muted/50 hover:text-primary hover:border-accent/40 hover:bg-surface transition-all"
+             download>Аудио</a>` : ''}
+          <button onclick="deleteHistoryEntry('${e.id}', this)"
+                  class="ml-1 p-1.5 rounded opacity-0 group-hover:opacity-100 transition-all
+                         hover:bg-red-950/30 hover:text-red-400/70 text-muted/30"
+                  title="Удалить">
+            <span class="material-symbols-outlined text-sm">delete</span>
+          </button>
+        </div>
+      </div>`).join('');
+
+  } catch {
+    spinner.classList.add('hidden');
+    empty.classList.remove('hidden');
+    document.getElementById('history-empty-text').textContent = 'Ошибка загрузки истории';
+  }
+}
+
+async function deleteHistoryEntry(id, btn) {
+  const row = btn.closest('div.flex');
+  await fetch(`/history/${id}`, { method: 'DELETE' });
+  row.remove();
+  const list = document.getElementById('history-list');
+  if (!list.children.length) {
+    document.getElementById('history-empty').classList.remove('hidden');
+  }
 }
 
 // ── Analysis: auth ─────────────────────────────────────────────────────────

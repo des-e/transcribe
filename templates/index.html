@@ -42,12 +42,17 @@
   </div>
 
   <nav class="flex-1 px-3 space-y-0.5">
-    <a href="#" id="nav-transcribe" onclick="showView('transcribe')"
+    <a href="#" id="nav-transcribe" onclick="return showView('transcribe')"
        class="flex items-center gap-3 py-2.5 px-3 rounded text-sm font-semibold text-primary bg-surface/50 border-l-2 border-accent">
       <span class="material-symbols-outlined text-base text-accent">description</span>
       Транскрипции
     </a>
-    <a href="#" id="nav-analysis" onclick="showView('analysis')"
+    <a href="#" id="nav-history" onclick="return showView('history')"
+       class="flex items-center gap-3 py-2.5 px-3 rounded text-sm font-semibold text-muted/50 border-l-2 border-transparent hover:text-primary hover:bg-surface/30 transition-all">
+      <span class="material-symbols-outlined text-base">history</span>
+      История
+    </a>
+    <a href="#" id="nav-analysis" onclick="return showView('analysis')"
        class="flex items-center gap-3 py-2.5 px-3 rounded text-sm font-semibold text-muted/50 border-l-2 border-transparent hover:text-primary hover:bg-surface/30 transition-all">
       <span class="material-symbols-outlined text-base">auto_awesome</span>
       Анализ
@@ -115,6 +120,40 @@
         </div>
       </div>
 
+    </section>
+
+    <!-- ── View: История ────────────────────────────────────────────────── -->
+    <section id="view-history" class="hidden flex-1 flex flex-col overflow-hidden bg-bg">
+      <div class="flex-1 overflow-y-auto scrollbar">
+        <div class="px-12 py-10 max-w-3xl mx-auto">
+
+          <div class="flex items-center justify-between mb-6">
+            <h2 class="text-sm font-semibold text-primary">История транскрибаций</h2>
+            <button onclick="loadHistoryView()"
+                    class="flex items-center gap-1.5 text-[10px] font-inter text-muted/40 hover:text-muted/70 transition-colors">
+              <span class="material-symbols-outlined text-sm">refresh</span>
+              Обновить
+            </button>
+          </div>
+
+          <!-- Spinner -->
+          <div id="history-spinner" class="hidden flex justify-center py-16">
+            <span class="material-symbols-outlined text-muted/20 text-3xl spin">autorenew</span>
+          </div>
+
+          <!-- Empty state -->
+          <div id="history-empty" class="hidden flex flex-col items-center justify-center py-24 text-center">
+            <span class="material-symbols-outlined text-[3.5rem] text-border/30 mb-5 block">history</span>
+            <p id="history-empty-text" class="text-sm text-muted/30 font-inter">
+              Здесь появятся завершённые транскрибации
+            </p>
+          </div>
+
+          <!-- List -->
+          <div id="history-list" class="space-y-2"></div>
+
+        </div>
+      </div>
     </section>
 
     <!-- ── View: Анализ ──────────────────────────────────────────────────── -->

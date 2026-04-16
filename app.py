@@ -26,6 +26,7 @@ os.environ.setdefault("TOKENIZERS_PARALLELISM", "false")
 import asyncio
 import json
 import platform
+import shutil
 import subprocess
 import tempfile
 import threading
@@ -69,6 +70,8 @@ except OSError:
     UPLOADS_DIR.mkdir(exist_ok=True)
 
 TEMPLATES_DIR = Path(__file__).parent / "templates"
+HISTORY_DIR   = Path(__file__).parent / "history"
+HISTORY_DIR.mkdir(exist_ok=True)
 
 AUDIO_EXTENSIONS = {".mp3", ".m4a", ".wav", ".ogg", ".aac", ".flac", ".wma", ".opus"}
 
@@ -205,6 +208,7 @@ async def clear_file(file_id: str):
 async def stream_transcription(
     request: Request,
     file_id: str,
+    filename: str = "transcript",
     model: str = "medium",
     extract_audio: bool = True,
     language: str = "ru",
@@ -276,6 +280,8 @@ async def stream_transcription(
     t.start()
 
     async def _generate():
+        collected_segments: list = []
+        done_data: dict | None   = None
         try:
             while True:
                 # Ждём следующий сегмент с таймаутом — чтобы проверять разрыв соединения
@@ -289,12 +295,24 @@ async def stream_transcription(
 
                 if item is None:
                     break
+
+                if item.get("type") == "segment":
+                    collected_segments.append(item)
+                elif item.get("type") == "done":
+                    done_data = item
+
                 yield f"data: {json.dumps(item, ensure_ascii=False)}\n\n"
         except GeneratorExit:
             # Браузер закрыл вкладку / страницу — останавливаем фоновый поток
             cancel_event.set()
         finally:
             _active.pop(file_id, None)
+            if done_data and collected_segments:
+                threading.Thread(
+                    target=_save_history,
+                    args=(file_id, filename, collected_segments, done_data),
+                    daemon=True,
+                ).start()
 
     return StreamingResponse(
         _generate(),
@@ -490,6 +508,132 @@ def _fmt(seconds: float) -> str:
     m, s = divmod(int(seconds), 60)
     h, m = divmod(m, 60)
     return f"{h:02d}:{m:02d}:{s:02d}"
+
+
+def _to_srt_time(s: float) -> str:
+    ms = round((s % 1) * 1000)
+    ss = int(s) % 60
+    mm = int(s // 60) % 60
+    hh = int(s // 3600)
+    return f"{hh:02d}:{mm:02d}:{ss:02d},{ms:03d}"
+
+
+def _save_history(file_id: str, filename: str, segments: list, done_data: dict) -> None:
+    """Сохраняет завершённую транскрибацию в папку history/."""
+    try:
+        entry_id  = f"{int(time.time())}_{uuid.uuid4().hex[:6]}"
+        entry_dir = HISTORY_DIR / entry_id
+        entry_dir.mkdir(parents=True, exist_ok=True)
+        base_name = Path(filename).stem
+
+        # meta.json
+        meta = {
+            "id":        entry_id,
+            "filename":  filename,
+            "base_name": base_name,
+            "date":      time.strftime("%d.%m.%Y %H:%M"),
+            "segments":  done_data.get("segments", 0),
+            "language":  done_data.get("language", "?"),
+            "speed":     done_data.get("speed", ""),
+        }
+        (entry_dir / "meta.json").write_text(
+            json.dumps(meta, ensure_ascii=False), encoding="utf-8"
+        )
+
+        # transcript.txt
+        txt = "\n\n".join(
+            f"[{s['start']} --> {s['end']}]\n{s['text']}" for s in segments
+        )
+        (entry_dir / "transcript.txt").write_text(txt, encoding="utf-8")
+
+        # transcript.srt
+        srt_blocks = [
+            f"{i}\n{_to_srt_time(s['start_s'])} --> {_to_srt_time(s['end_s'])}\n{s['text']}"
+            for i, s in enumerate(segments, 1)
+        ]
+        (entry_dir / "transcript.srt").write_text(
+            "\n\n".join(srt_blocks), encoding="utf-8"
+        )
+
+        # audio — копируем из UPLOADS_DIR
+        for pattern in [f"{file_id}_audio.*", f"{file_id}.*"]:
+            for src in UPLOADS_DIR.glob(pattern):
+                if src.suffix.lower() in AUDIO_EXTENSIONS:
+                    shutil.copy2(src, entry_dir / f"audio{src.suffix.lower()}")
+                    break
+            else:
+                continue
+            break
+
+    except Exception:
+        pass  # история не должна ронять основной поток
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# История транскрибаций
+# ──────────────────────────────────────────────────────────────────────────────
+
+@app.get("/history")
+async def list_history():
+    entries = []
+    if HISTORY_DIR.exists():
+        for entry_dir in sorted(HISTORY_DIR.iterdir(), reverse=True):
+            meta_file = entry_dir / "meta.json"
+            if not entry_dir.is_dir() or not meta_file.exists():
+                continue
+            meta = json.loads(meta_file.read_text(encoding="utf-8"))
+            meta["has_audio"] = any(
+                (entry_dir / f"audio{ext}").exists() for ext in AUDIO_EXTENSIONS
+            )
+            entries.append(meta)
+    return JSONResponse(entries)
+
+
+def _history_meta(entry_id: str) -> dict | None:
+    meta_file = HISTORY_DIR / entry_id / "meta.json"
+    if not meta_file.exists():
+        return None
+    return json.loads(meta_file.read_text(encoding="utf-8"))
+
+
+@app.get("/history/{entry_id}/txt")
+async def history_txt(entry_id: str):
+    path = HISTORY_DIR / entry_id / "transcript.txt"
+    if not path.exists():
+        return JSONResponse({"error": "not found"}, status_code=404)
+    meta = _history_meta(entry_id)
+    fname = f"{meta['base_name']}.txt" if meta else "transcript.txt"
+    return FileResponse(str(path), filename=fname, media_type="text/plain; charset=utf-8")
+
+
+@app.get("/history/{entry_id}/srt")
+async def history_srt(entry_id: str):
+    path = HISTORY_DIR / entry_id / "transcript.srt"
+    if not path.exists():
+        return JSONResponse({"error": "not found"}, status_code=404)
+    meta = _history_meta(entry_id)
+    fname = f"{meta['base_name']}.srt" if meta else "transcript.srt"
+    return FileResponse(str(path), filename=fname, media_type="text/plain; charset=utf-8")
+
+
+@app.get("/history/{entry_id}/audio")
+async def history_audio(entry_id: str):
+    entry_dir = HISTORY_DIR / entry_id
+    for ext in AUDIO_EXTENSIONS:
+        path = entry_dir / f"audio{ext}"
+        if path.exists():
+            meta = _history_meta(entry_id)
+            fname = f"{meta['base_name']}{ext}" if meta else f"audio{ext}"
+            return FileResponse(str(path), filename=fname)
+    return JSONResponse({"error": "not found"}, status_code=404)
+
+
+@app.delete("/history/{entry_id}")
+async def delete_history_entry(entry_id: str):
+    entry_dir = HISTORY_DIR / entry_id
+    if entry_dir.exists() and entry_dir.is_dir():
+        shutil.rmtree(entry_dir)
+    return JSONResponse({"ok": True})
 
 
 # ──────────────────────────────────────────────────────────────────────────────
