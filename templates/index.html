@@ -277,6 +277,12 @@
             <span class="material-symbols-outlined text-sm">subtitles</span>
             SRT
           </button>
+          <button onclick="downloadAudio()"
+                  class="col-span-2 py-2.5 rounded border border-border/25 text-[11px] font-inter font-semibold
+                         text-primary hover:bg-surface/50 transition-all flex items-center justify-center gap-1.5">
+            <span class="material-symbols-outlined text-sm">headphones</span>
+            Аудио
+          </button>
         </div>
       </div>
 
@@ -733,6 +739,15 @@ function downloadSRT() {
     baseName() + '.srt'
   );
   addActivity('SRT сохранён');
+}
+
+function downloadAudio() {
+  if (!currentFileId) return;
+  const a = document.createElement('a');
+  a.href = `/audio/${currentFileId}`;
+  a.download = baseName();
+  a.click();
+  addActivity('Аудио сохранено');
 }
 
 function triggerDownload(text, filename) {
