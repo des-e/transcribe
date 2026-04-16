@@ -1119,17 +1119,15 @@ function authLogout() {
 }
 
 // ── Analysis: option selector ──────────────────────────────────────────────
+const AN_ACTIVE   = ['border-accent/35', 'bg-surface', 'text-primary'];
+const AN_INACTIVE = ['border-border/20', 'text-muted/40', 'hover:text-muted/70', 'hover:bg-surface/20'];
+
 function anSelect(group, value, btn) {
   anOptions[group] = value;
   document.querySelectorAll(`.an-opt-${group}`).forEach(b => {
     const active = b === btn;
-    b.className = b.className
-      .replace('border-accent/35 bg-surface text-primary', '')
-      .replace('border-border/20 text-muted/40 hover:text-muted/70 hover:bg-surface/20', '')
-      .trim();
-    b.className += active
-      ? ' border-accent/35 bg-surface text-primary'
-      : ' border-border/20 text-muted/40 hover:text-muted/70 hover:bg-surface/20';
+    AN_ACTIVE.forEach(c   => b.classList.toggle(c, active));
+    AN_INACTIVE.forEach(c => b.classList.toggle(c, !active));
   });
 }
 
