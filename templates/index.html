@@ -120,16 +120,11 @@
 <main class="ml-52 min-h-screen flex flex-col">
 
   <!-- Top bar -->
-  <header class="h-14 flex items-center justify-between px-8 bg-bg border-b border-border/10 sticky top-0 z-40 shrink-0">
+  <header class="h-14 flex items-center px-8 bg-bg border-b border-border/10 sticky top-0 z-40 shrink-0">
     <div class="flex items-center gap-3 min-w-0">
       <span class="text-[10px] font-inter font-medium text-muted/30 uppercase tracking-widest shrink-0">Файл</span>
       <span class="text-[10px] text-border/60">/</span>
       <span id="header-filename" class="text-sm font-inter font-medium text-muted/60 truncate">не выбран</span>
-    </div>
-    <div id="status-badge"
-         class="flex items-center gap-2 px-3 py-1.5 rounded border border-border/20 bg-surface text-muted text-[10px] font-inter font-bold uppercase tracking-widest shrink-0">
-      <span class="material-symbols-outlined text-xs">hourglass_empty</span>
-      Ожидание
     </div>
   </header>
 
@@ -409,8 +404,18 @@
         </div>
       </div>
 
+      <!-- Status badge -->
+      <div class="px-6 pt-5 pb-1">
+        <div id="status-badge"
+             class="flex items-center gap-2 px-3 py-2 rounded border border-border/20 bg-surface/60
+                    text-muted text-[10px] font-inter font-bold uppercase tracking-widest w-full justify-center">
+          <span class="material-symbols-outlined text-xs">hourglass_empty</span>
+          Ожидание
+        </div>
+      </div>
+
       <!-- Action button -->
-      <div class="p-6 border-b border-border/10">
+      <div class="p-6 pt-3 border-b border-border/10">
         <button id="action-btn"
                 onclick="startTranscription()"
                 class="w-full py-3 rounded text-sm font-bold flex items-center justify-center gap-2
