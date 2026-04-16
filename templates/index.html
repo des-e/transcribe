@@ -231,45 +231,54 @@
           <!-- Участники -->
           <div class="mb-6">
             <p class="text-[9px] font-inter font-bold text-muted/40 uppercase tracking-[0.18em] mb-2.5">Участников</p>
-            <div id="an-participants" class="flex gap-1.5">
-              <button onclick="anSelect('participants','2',this)"
-                class="an-opt-participants flex-1 py-2 rounded border border-accent/35 bg-surface text-[11px] font-inter font-semibold text-primary transition-all">2</button>
-              <button onclick="anSelect('participants','3',this)"
-                class="an-opt-participants flex-1 py-2 rounded border border-border/20 text-[11px] font-inter font-semibold text-muted/40 hover:text-muted/70 hover:bg-surface/20 transition-all">3</button>
-              <button onclick="anSelect('participants','4',this)"
-                class="an-opt-participants flex-1 py-2 rounded border border-border/20 text-[11px] font-inter font-semibold text-muted/40 hover:text-muted/70 hover:bg-surface/20 transition-all">4</button>
-              <button onclick="anSelect('participants','5',this)"
-                class="an-opt-participants flex-1 py-2 rounded border border-border/20 text-[11px] font-inter font-semibold text-muted/40 hover:text-muted/70 hover:bg-surface/20 transition-all">5+</button>
+            <div class="flex items-center gap-2">
+              <button onclick="anStepParticipants(-1)"
+                class="w-8 h-8 flex items-center justify-center rounded border border-border/30 text-muted/50
+                       hover:border-accent/50 hover:text-primary transition-all text-lg leading-none select-none">−</button>
+              <input id="an-participants-input" type="number" min="2" max="50" value="2"
+                     oninput="anOptions.participants=Math.max(2,parseInt(this.value)||2);this.value=anOptions.participants"
+                     class="flex-1 text-center bg-surface/50 border border-border/30 rounded py-1.5
+                            text-[13px] font-inter font-semibold text-primary
+                            focus:outline-none focus:border-accent/50 transition-all"/>
+              <button onclick="anStepParticipants(1)"
+                class="w-8 h-8 flex items-center justify-center rounded border border-border/30 text-muted/50
+                       hover:border-accent/50 hover:text-primary transition-all text-lg leading-none select-none">+</button>
             </div>
           </div>
 
           <!-- Тип созвона -->
           <div class="mb-6">
             <p class="text-[9px] font-inter font-bold text-muted/40 uppercase tracking-[0.18em] mb-2.5">Тип созвона</p>
-            <div class="flex gap-1.5">
+            <div class="grid grid-cols-2 gap-1.5">
               <button onclick="anSelect('meeting_type','team',this)"
-                class="an-opt-meeting_type flex-1 py-2 rounded border border-accent/35 bg-surface text-[11px] font-inter font-semibold text-primary transition-all">Команда</button>
+                class="an-opt-meeting_type py-2 rounded border border-accent/35 bg-surface text-[11px] font-inter font-semibold text-primary transition-all">Команда</button>
               <button onclick="anSelect('meeting_type','client',this)"
-                class="an-opt-meeting_type flex-1 py-2 rounded border border-border/20 text-[11px] font-inter font-semibold text-muted/40 hover:text-muted/70 hover:bg-surface/20 transition-all">Заказчик</button>
+                class="an-opt-meeting_type py-2 rounded border border-border/20 text-[11px] font-inter font-semibold text-muted/40 hover:text-muted/70 hover:bg-surface/20 transition-all">Заказчик</button>
               <button onclick="anSelect('meeting_type','joint',this)"
-                class="an-opt-meeting_type flex-1 py-2 rounded border border-border/20 text-[11px] font-inter font-semibold text-muted/40 hover:text-muted/70 hover:bg-surface/20 transition-all">Оба</button>
+                class="an-opt-meeting_type py-2 rounded border border-border/20 text-[11px] font-inter font-semibold text-muted/40 hover:text-muted/70 hover:bg-surface/20 transition-all">Оба</button>
+              <button onclick="anSelect('meeting_type','tech',this)"
+                class="an-opt-meeting_type py-2 rounded border border-border/20 text-[11px] font-inter font-semibold text-muted/40 hover:text-muted/70 hover:bg-surface/20 transition-all">Технический</button>
             </div>
           </div>
 
           <!-- Цель -->
           <div class="mb-6">
             <p class="text-[9px] font-inter font-bold text-muted/40 uppercase tracking-[0.18em] mb-2.5">Цель созвона</p>
-            <div class="grid grid-cols-3 gap-1.5">
+            <div class="grid grid-cols-2 gap-1.5">
               <button onclick="anSelect('goal','tasks',this)"
-                class="an-opt-goal py-2 rounded border border-accent/35 bg-surface text-[11px] font-inter font-semibold text-primary transition-all">Задачи</button>
+                class="an-opt-goal py-2 rounded border border-accent/35 bg-surface text-[11px] font-inter font-semibold text-primary transition-all">Постановка задач</button>
               <button onclick="anSelect('goal','review',this)"
-                class="an-opt-goal py-2 rounded border border-border/20 text-[11px] font-inter font-semibold text-muted/40 hover:text-muted/70 hover:bg-surface/20 transition-all">Разбор</button>
+                class="an-opt-goal py-2 rounded border border-border/20 text-[11px] font-inter font-semibold text-muted/40 hover:text-muted/70 hover:bg-surface/20 transition-all">Разбор проблем</button>
               <button onclick="anSelect('goal','sales',this)"
-                class="an-opt-goal py-2 rounded border border-border/20 text-[11px] font-inter font-semibold text-muted/40 hover:text-muted/70 hover:bg-surface/20 transition-all">Продажа</button>
+                class="an-opt-goal py-2 rounded border border-border/20 text-[11px] font-inter font-semibold text-muted/40 hover:text-muted/70 hover:bg-surface/20 transition-all">Продажа / Демо</button>
               <button onclick="anSelect('goal','status',this)"
-                class="an-opt-goal py-2 rounded border border-border/20 text-[11px] font-inter font-semibold text-muted/40 hover:text-muted/70 hover:bg-surface/20 transition-all">Статус</button>
+                class="an-opt-goal py-2 rounded border border-border/20 text-[11px] font-inter font-semibold text-muted/40 hover:text-muted/70 hover:bg-surface/20 transition-all">Статус проекта</button>
+              <button onclick="anSelect('goal','planning',this)"
+                class="an-opt-goal py-2 rounded border border-border/20 text-[11px] font-inter font-semibold text-muted/40 hover:text-muted/70 hover:bg-surface/20 transition-all">Планирование</button>
+              <button onclick="anSelect('goal','briefing',this)"
+                class="an-opt-goal py-2 rounded border border-border/20 text-[11px] font-inter font-semibold text-muted/40 hover:text-muted/70 hover:bg-surface/20 transition-all">Брифинг</button>
               <button onclick="anSelect('goal','other',this)"
-                class="an-opt-goal py-2 rounded border border-border/20 text-[11px] font-inter font-semibold text-muted/40 hover:text-muted/70 hover:bg-surface/20 transition-all">Другое</button>
+                class="an-opt-goal col-span-2 py-2 rounded border border-border/20 text-[11px] font-inter font-semibold text-muted/40 hover:text-muted/70 hover:bg-surface/20 transition-all">Другое</button>
             </div>
           </div>
 
@@ -1117,6 +1126,13 @@ function anSelect(group, value, btn) {
       ? ' border-accent/35 bg-surface text-primary'
       : ' border-border/20 text-muted/40 hover:text-muted/70 hover:bg-surface/20';
   });
+}
+
+function anStepParticipants(delta) {
+  const input = document.getElementById('an-participants-input');
+  const val = Math.max(2, Math.min(50, (parseInt(input.value) || 2) + delta));
+  input.value = val;
+  anOptions.participants = val;
 }
 
 // ── Analysis: generate ─────────────────────────────────────────────────────
