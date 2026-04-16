@@ -689,7 +689,7 @@ function setStatus(type, message) {
 
   const cfg = {
     processing: { cls: 'border-accent/30 bg-surface text-accent',                    icon: 'autorenew',      spin: true,  label: 'Обработка' },
-    done:       { cls: 'border-green-800/40 bg-green-950/30 text-green-500/80',       icon: 'check_circle',   spin: false, label: 'Готово'    },
+    done:       { cls: 'border-accent/40 bg-surface text-accent',                      icon: 'check_circle',   spin: false, label: 'Готово'    },
     error:      { cls: 'border-red-800/30 bg-red-950/20 text-red-500/70',             icon: 'error',          spin: false, label: 'Ошибка'    },
     idle:       { cls: 'border-border/20 bg-surface text-muted',                      icon: 'hourglass_empty',spin: false, label: 'Ожидание'  },
   }[type] || { cls: 'border-border/20 bg-surface text-muted', icon: 'hourglass_empty', spin: false, label: 'Ожидание' };
