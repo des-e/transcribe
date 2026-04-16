@@ -649,6 +649,7 @@ const SUMMARY_API = 'http://193.222.97.61:8001';
 let anUserKey  = localStorage.getItem('an_user_key')  || '';
 let anUserName = localStorage.getItem('an_user_name') || '';
 let anOptions  = { participants: '2', meeting_type: 'team', goal: 'tasks', mode: 'full' };
+let anSourceId = null; // null = текущая сессия, string = history entry id
 
 function renderAnalysisView() {
   if (anUserKey) {
@@ -702,6 +703,41 @@ function showAnalysisMain() {
     ? `${used.toLocaleString('ru')} / ${limit.toLocaleString('ru')}`
     : `${used.toLocaleString('ru')}`;
   renderHistory();
+  loadAnalysisSources();
+}
+
+async function loadAnalysisSources() {
+  const select = document.getElementById('an-source-select');
+  if (!select) return;
+
+  const prevVal = select.value;
+  select.innerHTML = '<option value="">— Текущая транскрибация —</option>';
+
+  try {
+    const r       = await fetch('/history');
+    const entries = await r.json();
+    entries.forEach(e => {
+      const opt = document.createElement('option');
+      opt.value       = e.id;
+      opt.textContent = `${e.filename}  ·  ${e.date}`;
+      select.appendChild(opt);
+    });
+    // Восстанавливаем выбор если запись ещё есть
+    if (prevVal && [...select.options].some(o => o.value === prevVal)) {
+      select.value = prevVal;
+    }
+  } catch {}
+}
+
+function anSourceChanged(select) {
+  anSourceId = select.value || null;
+  // Автозаполнение названия из имени файла (только если поле пустое)
+  if (anSourceId) {
+    const label = select.options[select.selectedIndex].textContent;
+    const fname = label.split('·')[0].trim().replace(/\.[^/.]+$/, '');
+    const titleEl = document.getElementById('an-title');
+    if (!titleEl.value) titleEl.value = fname;
+  }
 }
 
 function authLogout() {
@@ -734,12 +770,27 @@ function anStepParticipants(delta) {
 
 // ── Analysis: generate ─────────────────────────────────────────────────────
 async function generateAnalysis() {
-  const transcript = allSegments.length
-    ? allSegments.map(s => `[${s.start} --> ${s.end}]\n${s.text}`).join('\n\n')
-    : '';
+  const status = document.getElementById('an-status');
+  let transcript = '';
+
+  if (anSourceId) {
+    // Загружаем TXT из истории
+    try {
+      const r = await fetch(`/history/${anSourceId}/txt`);
+      if (!r.ok) throw new Error();
+      transcript = await r.text();
+    } catch {
+      status.textContent = 'Не удалось загрузить транскрипт из истории';
+      return;
+    }
+  } else {
+    transcript = allSegments.length
+      ? allSegments.map(s => `[${s.start} --> ${s.end}]\n${s.text}`).join('\n\n')
+      : '';
+  }
 
   if (!transcript) {
-    document.getElementById('an-status').textContent = 'Сначала выполни транскрибацию';
+    status.textContent = 'Выбери транскрипт: текущую сессию или файл из истории';
     return;
   }
 
@@ -748,7 +799,6 @@ async function generateAnalysis() {
   const btn          = document.getElementById('an-submit-btn');
   const icon         = document.getElementById('an-btn-icon');
   const label        = document.getElementById('an-btn-label');
-  const status       = document.getElementById('an-status');
 
   btn.disabled = true;
   icon.classList.add('spin'); label.textContent = 'Анализирую...';

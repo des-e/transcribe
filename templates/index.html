@@ -205,6 +205,21 @@
             </div>
           </div>
 
+          <!-- Источник транскрипта -->
+          <div class="mb-6">
+            <p class="text-[9px] font-inter font-bold text-muted/40 uppercase tracking-[0.18em] mb-2.5">Транскрипт</p>
+            <div class="relative">
+              <select id="an-source-select" onchange="anSourceChanged(this)"
+                      class="w-full appearance-none bg-surface/50 border border-border/30 rounded px-3 py-2.5 pr-8
+                             text-[12px] font-inter text-primary
+                             focus:outline-none focus:border-accent/50 transition-all cursor-pointer">
+                <option value="">— Текущая транскрибация —</option>
+              </select>
+              <span class="material-symbols-outlined absolute right-2.5 top-1/2 -translate-y-1/2
+                           text-sm text-muted/30 pointer-events-none">expand_more</span>
+            </div>
+          </div>
+
           <!-- Название созвона -->
           <div class="mb-6">
             <p class="text-[9px] font-inter font-bold text-muted/40 uppercase tracking-[0.18em] mb-2.5">Название созвона</p>
