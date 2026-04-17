@@ -645,7 +645,7 @@ async function deleteHistoryEntry(id, btn) {
 }
 
 // ── Analysis: auth ─────────────────────────────────────────────────────────
-const SUMMARY_API = 'http://193.222.97.61:8001';
+const SUMMARY_API = 'https://effective-resolved-gauntlet.ngrok-free.dev';
 let anUserKey  = localStorage.getItem('an_user_key')  || '';
 let anUserName = localStorage.getItem('an_user_name') || '';
 let anOptions  = { participants: '2', meeting_type: 'team', goal: 'tasks', mode: 'full' };
