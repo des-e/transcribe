@@ -785,7 +785,7 @@ function anToggleParam(param, enabled) {
                : `an-${param}-wrap`;
   const wrap = document.getElementById(wrapId);
   if (wrap) {
-    wrap.classList.toggle('opacity-50', !enabled);
+    wrap.classList.toggle('opacity-70', !enabled);
     wrap.classList.toggle('pointer-events-none', !enabled);
   }
 }
