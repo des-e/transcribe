@@ -647,7 +647,11 @@ const SUMMARY_API = 'http://193.222.97.61:8001';
 const SUMMARY_HEADERS = {};
 let anUserKey  = localStorage.getItem('an_user_key')  || '';
 let anUserName = localStorage.getItem('an_user_name') || '';
-let anOptions  = { participants: 2, meeting_type: 'team', goal: 'tasks', mode: 'full' };
+let anOptions  = {
+  participants: 2, meeting_type: 'team', goal: 'tasks', mode: 'auto',
+  meeting_type_custom: '',
+  use_participants: false, use_meeting_type: false, use_goal: false, use_custom_prompt: false,
+};
 let anSourceId = null; // null = текущая сессия, string = history entry id
 
 function renderAnalysisView() {
@@ -767,6 +771,38 @@ function anStepParticipants(delta) {
   anOptions.participants = val;
 }
 
+function toggleAnParams() {
+  const panel   = document.getElementById('an-params-panel');
+  const chevron = document.getElementById('an-params-chevron');
+  const hidden  = panel.classList.toggle('hidden');
+  chevron.style.transform = hidden ? '' : 'rotate(180deg)';
+}
+
+function anToggleParam(param, enabled) {
+  anOptions[`use_${param}`] = enabled;
+  const wrapId = param === 'meeting_type' ? 'an-type-wrap'
+               : param === 'custom_prompt' ? 'an-custom-prompt-wrap'
+               : `an-${param}-wrap`;
+  const wrap = document.getElementById(wrapId);
+  if (wrap) {
+    wrap.classList.toggle('opacity-35', !enabled);
+    wrap.classList.toggle('pointer-events-none', !enabled);
+  }
+}
+
+function anSelect(group, value, btn) {
+  anOptions[group] = value;
+  document.querySelectorAll(`.an-opt-${group}`).forEach(b => {
+    const active = b === btn;
+    AN_ACTIVE.forEach(c   => b.classList.toggle(c, active));
+    AN_INACTIVE.forEach(c => b.classList.toggle(c, !active));
+  });
+  if (group === 'meeting_type') {
+    const customInput = document.getElementById('an-type-custom');
+    if (customInput) customInput.classList.toggle('hidden', value !== 'custom');
+  }
+}
+
 // ── Analysis: generate ─────────────────────────────────────────────────────
 async function generateAnalysis() {
   const status = document.getElementById('an-status');
@@ -793,11 +829,21 @@ async function generateAnalysis() {
     return;
   }
 
-  const title        = document.getElementById('an-title').value.trim() || 'Анализ созвона';
-  const customPrompt = document.getElementById('an-custom-prompt').value.trim();
+  const title        = document.getElementById('an-title').value.trim() || 'Анализ';
+  const customPrompt = anOptions.use_custom_prompt
+    ? document.getElementById('an-custom-prompt').value.trim()
+    : '';
   const btn          = document.getElementById('an-submit-btn');
   const icon         = document.getElementById('an-btn-icon');
   const label        = document.getElementById('an-btn-label');
+
+  // Resolve meeting_type: custom free-text or preset key or null
+  let meetingType = null;
+  if (anOptions.use_meeting_type) {
+    meetingType = anOptions.meeting_type === 'custom'
+      ? (anOptions.meeting_type_custom.trim() || null)
+      : anOptions.meeting_type;
+  }
 
   btn.disabled = true;
   icon.classList.add('spin'); label.textContent = 'Анализирую...';
@@ -810,9 +856,9 @@ async function generateAnalysis() {
       body: JSON.stringify({
         transcript,
         title,
-        participants:  parseInt(anOptions.participants),
-        meeting_type:  anOptions.meeting_type,
-        goal:          anOptions.goal,
+        participants:  anOptions.use_participants ? parseInt(anOptions.participants) : null,
+        meeting_type:  meetingType,
+        goal:          anOptions.use_goal ? anOptions.goal : null,
         mode:          anOptions.mode,
         custom_prompt: customPrompt,
       }),
