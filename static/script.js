@@ -646,6 +646,7 @@ async function deleteHistoryEntry(id, btn) {
 
 // ── Analysis: auth ─────────────────────────────────────────────────────────
 const SUMMARY_API = 'https://effective-resolved-gauntlet.ngrok-free.dev';
+const SUMMARY_HEADERS = { 'ngrok-skip-browser-warning': '1' };
 let anUserKey  = localStorage.getItem('an_user_key')  || '';
 let anUserName = localStorage.getItem('an_user_name') || '';
 let anOptions  = { participants: '2', meeting_type: 'team', goal: 'tasks', mode: 'full' };
@@ -671,7 +672,7 @@ async function authSubmit() {
 
   try {
     const r = await fetch(`${SUMMARY_API}/validate`, {
-      method: 'POST', headers: { 'X-User-Key': key }
+      method: 'POST', headers: { ...SUMMARY_HEADERS, 'X-User-Key': key }
     });
     const data = await r.json();
     if (r.ok && data.ok) {
@@ -807,7 +808,7 @@ async function generateAnalysis() {
   try {
     const r = await fetch(`${SUMMARY_API}/summarize`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'X-User-Key': anUserKey },
+      headers: { ...SUMMARY_HEADERS, 'Content-Type': 'application/json', 'X-User-Key': anUserKey },
       body: JSON.stringify({
         transcript,
         title,
@@ -838,7 +839,7 @@ async function generateAnalysis() {
     saveHistory({ title, date: new Date().toLocaleDateString('ru-RU'), html });
     renderHistory();
 
-    fetch(`${SUMMARY_API}/validate`, { method: 'POST', headers: { 'X-User-Key': anUserKey } })
+    fetch(`${SUMMARY_API}/validate`, { method: 'POST', headers: { ...SUMMARY_HEADERS, 'X-User-Key': anUserKey } })
       .then(r => r.json()).then(d => {
         if (d.ok) {
           localStorage.setItem('an_tokens_used',  d.tokens_used);
