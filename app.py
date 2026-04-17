@@ -6,6 +6,7 @@
 #   "faster-whisper>=1.0.0",
 #   "python-multipart>=0.0.9",
 #   "mlx-whisper>=0.4.1; sys_platform == 'darwin' and platform_machine == 'arm64'",
+#   "imageio-ffmpeg>=0.4.9",
 # ]
 # ///
 """
@@ -37,10 +38,13 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Any
 
+import imageio_ffmpeg
 import uvicorn
 from fastapi import FastAPI, File, Request, UploadFile
 from fastapi.responses import FileResponse, HTMLResponse, StreamingResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
+
+FFMPEG = imageio_ffmpeg.get_ffmpeg_exe()
 
 # ──────────────────────────────────────────────────────────────────────────────
 # Платформа
@@ -242,7 +246,7 @@ async def stream_transcription(
                 _put(loop, queue, {"type": "status", "message": "Извлечение аудиодорожки..."})
                 audio_out = UPLOADS_DIR / f"{file_id}_audio.mp3"
                 res = subprocess.run(
-                    ["ffmpeg", "-y", "-i", transcribe_path,
+                    [FFMPEG, "-y", "-i", transcribe_path,
                      "-vn", "-acodec", "mp3", "-ab", "128k", "-ar", "44100",
                      str(audio_out)],
                     capture_output=True,

@@ -4,8 +4,7 @@
 
 Что делает:
   1. Проверяет обновления из репозитория
-  2. Проверяет / предлагает установить ffmpeg
-  3. Запускает app.py через uv run
+  2. Запускает app.py через uv run
      (uv сам управляет зависимостями из заголовка app.py)
 """
 import os
@@ -148,123 +147,6 @@ def check_for_updates():
         print("[~] Таймаут соединения — пропускаю проверку обновлений")
     except Exception:
         pass  # Никогда не блокируем запуск из-за обновления
-
-
-# ──────────────────────────────────────────────────────────────────────────────
-# ffmpeg
-# ──────────────────────────────────────────────────────────────────────────────
-
-def ffmpeg_available() -> bool:
-    try:
-        subprocess.run(["ffmpeg", "-version"], capture_output=True, check=True)
-        return True
-    except Exception:
-        return False
-
-
-def find_brew() -> str | None:
-    """Ищет brew в PATH и стандартных местах установки Homebrew."""
-    brew = shutil.which("brew")
-    if brew:
-        return brew
-    # После установки Homebrew PATH текущего процесса ещё не обновлён —
-    # проверяем стандартные пути напрямую
-    for path in ["/opt/homebrew/bin/brew", "/usr/local/bin/brew"]:
-        if Path(path).exists():
-            # Добавляем каталог brew в PATH текущего процесса
-            brew_dir = str(Path(path).parent)
-            os.environ["PATH"] = brew_dir + ":" + os.environ.get("PATH", "")
-            return path
-    return None
-
-
-def install_brew() -> str | None:
-    """Устанавливает Homebrew. Возвращает путь к brew или None при ошибке."""
-    print("[→] Устанавливаю Homebrew...")
-    print("    Сейчас потребуется ввести пароль администратора.")
-    print()
-    env = {**os.environ, "NONINTERACTIVE": "1"}
-    result = subprocess.run(
-        ["/bin/bash", "-c",
-         "curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh | bash"],
-        env=env,
-    )
-    if result.returncode != 0:
-        return None
-    return find_brew()
-
-
-def handle_ffmpeg():
-    try:
-        _handle_ffmpeg()
-    except Exception as e:
-        print(f"[~] Не удалось проверить ffmpeg ({e})")
-        print("    Видеофайлы могут не работать. Аудиофайлы (MP3, WAV, M4A) работают без ffmpeg.")
-
-
-def _handle_ffmpeg():
-    if ffmpeg_available():
-        print("[✓] ffmpeg найден")
-        return
-
-    print()
-    print("[!] ffmpeg не найден.")
-    print("    ffmpeg нужен для видеофайлов (MP4, MKV, MOV, AVI).")
-    print("    Без него работают только аудиофайлы (MP3, WAV, M4A).")
-    print()
-
-    if SYSTEM == "Windows":
-        print("[→] Устанавливаю ffmpeg через winget...")
-        result = subprocess.run(["winget", "install", "--id", "Gyan.FFmpeg", "-e"])
-        if result.returncode == 0:
-            print("[✓] ffmpeg установлен.")
-            print("    Перезапусти start.bat — ffmpeg появится в PATH после перезапуска.")
-        else:
-            print("[!] Не удалось установить автоматически.")
-            print("    Установи вручную: https://ffmpeg.org/download.html")
-        _pause_exit()
-
-    elif SYSTEM == "Darwin":
-        brew = find_brew()
-
-        if not brew:
-            print("[→] Homebrew не найден. Устанавливаю автоматически...")
-            print("    (Homebrew нужен для установки ffmpeg)")
-            print()
-            brew = install_brew()
-            if not brew:
-                print("[!] Не удалось установить Homebrew.")
-                print("    Установи вручную: https://brew.sh")
-                print("    Или скачай ffmpeg: https://evermeet.cx/ffmpeg/")
-                print()
-                if input("    Продолжить без ffmpeg (только аудиофайлы)? [y/N]: ").strip().lower() != "y":
-                    _pause_exit()
-                print("[~] Продолжаем без ffmpeg — видеофайлы недоступны")
-                return
-            print("[✓] Homebrew установлен")
-            print()
-
-        print("[→] Устанавливаю ffmpeg через Homebrew...")
-        if subprocess.run([brew, "install", "ffmpeg"]).returncode == 0:
-            print("[✓] ffmpeg установлен")
-            return
-        print("[!] Не удалось установить ffmpeg.")
-        print("    Попробуй вручную: brew install ffmpeg")
-        print("    Или скачай бинарник: https://evermeet.cx/ffmpeg/")
-        print()
-        if input("    Продолжить без ffmpeg (только аудиофайлы)? [y/N]: ").strip().lower() != "y":
-            _pause_exit()
-        print("[~] Продолжаем без ffmpeg — видеофайлы недоступны")
-
-    else:  # Linux
-        print("    Установи ffmpeg вручную:")
-        print("      sudo apt install ffmpeg        # Ubuntu / Debian")
-        print("      sudo dnf install ffmpeg        # Fedora")
-        print("      sudo pacman -S ffmpeg          # Arch")
-        print()
-        if input("    Продолжить без ffmpeg (только аудиофайлы)? [y/N]: ").strip().lower() != "y":
-            _pause_exit()
-        print("[~] Продолжаем без ffmpeg — видеофайлы недоступны")
 
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -453,7 +335,6 @@ if __name__ == "__main__":
     print()
     print(f"[✓] Python {sys.version.split()[0]}")
     check_for_updates()
-    handle_ffmpeg()
     warm_up_model()
     handle_port()
     run_app()
