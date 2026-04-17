@@ -136,8 +136,7 @@ function uploadFile(file) {
       document.getElementById('file-name').textContent = data.filename;
       document.getElementById('file-size').textContent = data.size + ' · готов';
       document.getElementById('file-card').classList.remove('hidden');
-      document.getElementById('header-filename').textContent = data.filename;
-      document.getElementById('extract-wrapper').style.display = data.is_audio ? 'none' : '';
+      document.getElementById('header-filename') && (document.getElementById('header-filename').textContent = data.filename);
 
       addActivity(`Загружен: ${data.filename}`);
     } else {
@@ -166,8 +165,7 @@ function clearFile() {
   currentFilename = null;
   hidePlayer();
   document.getElementById('file-card').classList.add('hidden');
-  document.getElementById('header-filename').textContent = 'не выбран';
-  document.getElementById('extract-wrapper').style.display = '';
+  document.getElementById('header-filename') && (document.getElementById('header-filename').textContent = 'не выбран');
   fileInput.value = '';
 }
 
@@ -187,7 +185,6 @@ function startTranscription() {
   addActivity('Транскрибация запущена');
 
   const url = `/stream?file_id=${currentFileId}&model=${selectedModel}`
-            + `&extract_audio=${document.getElementById('extract-toggle').checked}`
             + `&language=${selectedLang}`
             + `&filename=${encodeURIComponent(currentFilename || 'transcript')}`;
 
@@ -552,6 +549,7 @@ function toggleTheme() {
   html.classList.toggle('light',  goLight);
   localStorage.setItem('theme', goLight ? 'light' : 'dark');
   document.getElementById('theme-icon').textContent = goLight ? 'dark_mode' : 'light_mode';
+  document.getElementById('favicon').href = goLight ? '/static/favicon-light.svg' : '/static/favicon.svg';
 }
 
 // ── View switching ─────────────────────────────────────────────────────────
@@ -649,7 +647,7 @@ const SUMMARY_API = 'http://193.222.97.61:8001';
 const SUMMARY_HEADERS = {};
 let anUserKey  = localStorage.getItem('an_user_key')  || '';
 let anUserName = localStorage.getItem('an_user_name') || '';
-let anOptions  = { participants: '2', meeting_type: 'team', goal: 'tasks', mode: 'full' };
+let anOptions  = { participants: 2, meeting_type: 'team', goal: 'tasks', mode: 'full' };
 let anSourceId = null; // null = текущая сессия, string = history entry id
 
 function renderAnalysisView() {
@@ -764,7 +762,7 @@ function anSelect(group, value, btn) {
 
 function anStepParticipants(delta) {
   const input = document.getElementById('an-participants-input');
-  const val = Math.max(2, Math.min(50, (parseInt(input.value) || 2) + delta));
+  const val = Math.max(1, Math.min(50, (parseInt(input.value) || 1) + delta));
   input.value = val;
   anOptions.participants = val;
 }
@@ -941,5 +939,6 @@ renderLangs();
   if (saved === 'light') {
     document.documentElement.classList.replace('dark', 'light');
     document.getElementById('theme-icon').textContent = 'dark_mode';
+    document.getElementById('favicon').href = '/static/favicon-light.svg';
   }
 })();

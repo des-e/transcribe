@@ -3,7 +3,8 @@
 <head>
 <meta charset="utf-8"/>
 <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
-<title>Транскрибатор v0.19</title>
+<title>Транскрибатор v0.20</title>
+<link id="favicon" rel="icon" type="image/svg+xml" href="/static/favicon.svg"/>
 <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
 <link href="https://fonts.googleapis.com/css2?family=Epilogue:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;1,300&family=Inter:wght@400;500;600&display=swap" rel="stylesheet"/>
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
@@ -76,36 +77,27 @@
 <!-- ── Main ─────────────────────────────────────────────────────────────── -->
 <main class="ml-52 min-h-screen flex flex-col">
 
-  <!-- Top bar -->
-  <header class="h-14 flex items-center px-8 bg-bg border-b border-border/10 sticky top-0 z-40 shrink-0">
-    <div class="flex items-center gap-3 min-w-0">
-      <span class="text-[10px] font-inter font-medium text-muted/30 uppercase tracking-widest shrink-0">Файл</span>
-      <span class="text-[10px] text-border/60">/</span>
-      <span id="header-filename" class="text-sm font-inter font-medium text-muted/60 truncate">не выбран</span>
+  <!-- Audio player (sticky header) -->
+  <div id="audio-player" class="hidden border-b border-border/10 bg-sidebar px-12 py-3.5 shrink-0 sticky top-0 z-40">
+    <audio id="audio-el" preload="metadata"></audio>
+    <div class="max-w-3xl mx-auto flex items-center gap-4">
+      <button id="play-btn" onclick="togglePlay()"
+              class="w-7 h-7 flex items-center justify-center rounded hover:bg-surface/60 transition-colors shrink-0">
+        <span class="material-symbols-outlined icon-fill text-accent" style="font-size:20px">play_arrow</span>
+      </button>
+      <span id="audio-time" class="text-[11px] font-inter text-muted/35 shrink-0 tabular-nums w-24">0:00 / 0:00</span>
+      <div id="progress-track" class="flex-1 h-px bg-border/25 relative cursor-pointer" onclick="seekAudio(event)">
+        <div id="progress-fill" class="absolute left-0 top-0 h-full bg-accent/50 pointer-events-none" style="width:0%"></div>
+        <div id="progress-thumb" class="absolute top-1/2 -translate-y-1/2 w-2.5 h-2.5 rounded-full bg-accent opacity-0 pointer-events-none" style="left:0%"></div>
+      </div>
     </div>
-  </header>
+  </div>
 
   <!-- Body -->
-  <div class="flex flex-1 overflow-hidden" style="height: calc(100vh - 3.5rem)">
+  <div class="flex flex-1 overflow-hidden">
 
     <!-- ── View: Транскрипции ───────────────────────────────────────────── -->
     <section id="view-transcribe" class="flex-1 flex flex-col overflow-hidden bg-bg">
-
-      <!-- Audio player (сверху) -->
-      <div id="audio-player" class="hidden border-b border-border/10 bg-sidebar px-12 py-3.5 shrink-0">
-        <audio id="audio-el" preload="metadata"></audio>
-        <div class="max-w-3xl mx-auto flex items-center gap-4">
-          <button id="play-btn" onclick="togglePlay()"
-                  class="w-7 h-7 flex items-center justify-center rounded hover:bg-surface/60 transition-colors shrink-0">
-            <span class="material-symbols-outlined icon-fill text-accent" style="font-size:20px">play_arrow</span>
-          </button>
-          <span id="audio-time" class="text-[11px] font-inter text-muted/35 shrink-0 tabular-nums w-24">0:00 / 0:00</span>
-          <div id="progress-track" class="flex-1 h-px bg-border/25 relative cursor-pointer" onclick="seekAudio(event)">
-            <div id="progress-fill" class="absolute left-0 top-0 h-full bg-accent/50 pointer-events-none" style="width:0%"></div>
-            <div id="progress-thumb" class="absolute top-1/2 -translate-y-1/2 w-2.5 h-2.5 rounded-full bg-accent opacity-0 pointer-events-none" style="left:0%"></div>
-          </div>
-        </div>
-      </div>
 
       <!-- Scrollable transcript -->
       <div class="flex-1 overflow-y-auto scrollbar" id="transcript-area">
@@ -236,8 +228,8 @@
               <button onclick="anStepParticipants(-1)"
                 class="w-8 h-8 flex items-center justify-center rounded border border-border/30 text-muted/50
                        hover:border-accent/50 hover:text-primary transition-all text-lg leading-none select-none">−</button>
-              <input id="an-participants-input" type="number" min="2" max="50" value="2"
-                     oninput="anOptions.participants=Math.max(2,parseInt(this.value)||2);this.value=anOptions.participants"
+              <input id="an-participants-input" type="number" min="1" max="50" value="2"
+                     oninput="anOptions.participants=Math.max(1,parseInt(this.value)||1);this.value=anOptions.participants"
                      class="flex-1 text-center bg-surface/50 border border-border/30 rounded py-1.5
                             text-[13px] font-inter font-semibold text-primary
                             focus:outline-none focus:border-accent/50 transition-all"/>
@@ -247,9 +239,9 @@
             </div>
           </div>
 
-          <!-- Тип созвона -->
+          <!-- Тип видео -->
           <div class="mb-6">
-            <p class="text-[9px] font-inter font-bold text-muted/40 uppercase tracking-[0.18em] mb-2.5">Тип созвона</p>
+            <p class="text-[9px] font-inter font-bold text-muted/40 uppercase tracking-[0.18em] mb-2.5">Тип видео</p>
             <div class="grid grid-cols-2 gap-1.5">
               <button onclick="anSelect('meeting_type','team',this)"
                 class="an-opt-meeting_type py-2 rounded border border-accent/35 bg-surface text-[11px] font-inter font-semibold text-primary transition-all">Команда</button>
@@ -259,6 +251,8 @@
                 class="an-opt-meeting_type py-2 rounded border border-border/20 text-[11px] font-inter font-semibold text-muted/40 hover:text-muted/70 hover:bg-surface/20 transition-all">Оба</button>
               <button onclick="anSelect('meeting_type','tech',this)"
                 class="an-opt-meeting_type py-2 rounded border border-border/20 text-[11px] font-inter font-semibold text-muted/40 hover:text-muted/70 hover:bg-surface/20 transition-all">Технический</button>
+              <button onclick="anSelect('meeting_type','screencast',this)"
+                class="an-opt-meeting_type col-span-2 py-2 rounded border border-border/20 text-[11px] font-inter font-semibold text-muted/40 hover:text-muted/70 hover:bg-surface/20 transition-all">Скринкаст</button>
             </div>
           </div>
 
@@ -390,24 +384,6 @@
       <div class="p-6 border-b border-border/10">
         <p class="text-[9px] font-inter font-bold text-muted/40 uppercase tracking-[0.18em] mb-4">Язык</p>
         <div id="lang-list" class="flex gap-1.5"></div>
-      </div>
-
-      <!-- Extract toggle -->
-      <div id="extract-wrapper" class="px-6 py-4 border-b border-border/10">
-        <div class="flex items-center justify-between gap-3">
-          <div class="min-w-0">
-            <p class="text-[11px] font-inter font-medium text-primary">Извлечь аудио</p>
-            <p class="text-[9px] font-inter text-muted/35 mt-0.5">Видеофайлы · требует ffmpeg</p>
-          </div>
-          <label class="relative inline-flex items-center cursor-pointer shrink-0">
-            <input type="checkbox" id="extract-toggle" checked class="sr-only peer"/>
-            <div class="w-9 h-5 bg-border/30 rounded-full peer
-                        peer-checked:bg-accent/60
-                        after:content-[''] after:absolute after:top-[2px] after:left-[2px]
-                        after:bg-white/80 after:rounded-full after:h-4 after:w-4
-                        after:transition-all peer-checked:after:translate-x-4"></div>
-          </label>
-        </div>
       </div>
 
       <!-- Status badge -->

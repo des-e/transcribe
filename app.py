@@ -214,7 +214,6 @@ async def stream_transcription(
     file_id: str,
     filename: str = "transcript",
     model: str = "medium",
-    extract_audio: bool = True,
     language: str = "ru",
 ):
     files = list(UPLOADS_DIR.glob(f"{file_id}*"))
@@ -224,9 +223,7 @@ async def stream_transcription(
         return StreamingResponse(_err(), media_type="text/event-stream")
 
     file_path = files[0]
-
-    if file_path.suffix.lower() in AUDIO_EXTENSIONS:
-        extract_audio = False
+    extract_audio = file_path.suffix.lower() not in AUDIO_EXTENSIONS
 
     cancel_event = threading.Event()
     queue: asyncio.Queue = asyncio.Queue()
