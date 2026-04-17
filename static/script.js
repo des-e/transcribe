@@ -830,12 +830,11 @@ async function generateAnalysis() {
     status.textContent = 'Готово — скачиваю файл';
 
     const filename = title.replace(/[^а-яёА-ЯЁa-zA-Z0-9 _-]/g, '').trim() || 'Анализ';
-    const blobUrl = URL.createObjectURL(new Blob([html], { type: 'text/html;charset=utf-8' }));
     const a = document.createElement('a');
-    a.href = blobUrl; a.download = `${filename}.html`;
+    a.href = URL.createObjectURL(new Blob([html], { type: 'text/html;charset=utf-8' }));
+    a.download = `${filename}.html`;
     a.click();
-    window.open(blobUrl, '_blank');
-    setTimeout(() => URL.revokeObjectURL(blobUrl), 1000);
+    URL.revokeObjectURL(a.href);
 
     saveHistory({ title, date: new Date().toLocaleDateString('ru-RU'), html });
     renderHistory();
@@ -899,12 +898,27 @@ function renderHistory() {
           <p class="text-[9px] font-inter text-muted/30">${e.date}</p>
         </div>
       </div>
-      <button onclick="redownload(${e.id})"
-              class="opacity-0 group-hover:opacity-100 transition-opacity p-1.5 rounded hover:bg-surface shrink-0"
-              title="Скачать снова">
-        <span class="material-symbols-outlined text-sm text-muted/40">download</span>
-      </button>
+      <div class="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+        <button onclick="reopen(${e.id})"
+                class="p-1.5 rounded hover:bg-surface"
+                title="Открыть">
+          <span class="material-symbols-outlined text-sm text-muted/40">open_in_new</span>
+        </button>
+        <button onclick="redownload(${e.id})"
+                class="p-1.5 rounded hover:bg-surface"
+                title="Скачать">
+          <span class="material-symbols-outlined text-sm text-muted/40">download</span>
+        </button>
+      </div>
     </div>`).join('');
+}
+
+function reopen(id) {
+  const entry = loadHistory().find(e => e.id === id);
+  if (!entry) return;
+  const url = URL.createObjectURL(new Blob([entry.html], { type: 'text/html;charset=utf-8' }));
+  window.open(url, '_blank');
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
 function redownload(id) {
