@@ -36,7 +36,12 @@
 
 ---
 
-## Changelog — last update 16.04.2026
+## Changelog — last update 17.04.2026
+
+### v0.19
+
+- Анализ созвонов теперь работает без VPN — туннель через ngrok
+- ffmpeg поставляется внутри пакета (`imageio-ffmpeg`), больше не нужен Homebrew на Mac
 
 ### v0.18
 
