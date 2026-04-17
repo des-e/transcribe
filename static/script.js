@@ -830,11 +830,12 @@ async function generateAnalysis() {
     status.textContent = 'Готово — скачиваю файл';
 
     const filename = title.replace(/[^а-яёА-ЯЁa-zA-Z0-9 _-]/g, '').trim() || 'Анализ';
+    const blobUrl = URL.createObjectURL(new Blob([html], { type: 'text/html;charset=utf-8' }));
     const a = document.createElement('a');
-    a.href     = URL.createObjectURL(new Blob([html], { type: 'text/html;charset=utf-8' }));
-    a.download = `${filename}.html`;
+    a.href = blobUrl; a.download = `${filename}.html`;
     a.click();
-    URL.revokeObjectURL(a.href);
+    window.open(blobUrl, '_blank');
+    setTimeout(() => URL.revokeObjectURL(blobUrl), 1000);
 
     saveHistory({ title, date: new Date().toLocaleDateString('ru-RU'), html });
     renderHistory();
