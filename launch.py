@@ -93,7 +93,7 @@ def check_for_updates():
     try:
         # Fetch напрямую по URL — не трогаем remote origin (чтобы не сломать push)
         fetch = subprocess.run(
-            ["git", "fetch", _ro, "master:refs/remotes/origin/master", "--quiet"],
+            ["git", "fetch", "--force", _ro, "master:refs/remotes/origin/master", "--quiet"],
             cwd=HERE, capture_output=True, timeout=8,
         )
         if fetch.returncode != 0:
