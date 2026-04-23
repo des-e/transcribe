@@ -270,7 +270,7 @@ def _warm_up_model():
 # Проверка порта
 # ──────────────────────────────────────────────────────────────────────────────
 
-def _port_free(port: int = 8000) -> bool:
+def _port_free(port: int = 8765) -> bool:
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
         return s.connect_ex(("127.0.0.1", port)) != 0
 
@@ -279,13 +279,13 @@ def handle_port():
     if _port_free():
         return
     print()
-    print("[!] Порт 8000 занят — возможно, Transcribe уже запущен в другом окне.")
+    print("[!] Порт 8765 занят — возможно, Transcribe уже запущен в другом окне.")
     print()
     if SYSTEM == "Windows":
-        print("    Найти PID:   netstat -ano | findstr :8000")
+        print("    Найти PID:   netstat -ano | findstr :8765")
         print("    Завершить:   taskkill /PID <номер> /F")
     else:
-        print("    Завершить:   kill -9 $(lsof -t -i :8000)")
+        print("    Завершить:   kill -9 $(lsof -t -i :8765)")
     print()
     if input("    Запустить всё равно? [y/N]: ").strip().lower() != "y":
         _pause_exit()
@@ -303,7 +303,7 @@ def run_app():
 
     print()
     print("=" * 52)
-    print("   Transcribe запущен → http://localhost:8000")
+    print("   Transcribe запущен → http://localhost:8765")
     print("   Для остановки нажми Ctrl+C")
     print("=" * 52)
     print()

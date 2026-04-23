@@ -17,7 +17,7 @@
   - Всё остальное: faster-whisper (CPU, int8)
 
 Запуск: start.bat (Windows) / start.command (Mac) / ./start.sh (Linux)
-Откроется: http://localhost:8000
+Откроется: http://localhost:8765
 """
 import os
 os.environ.setdefault("HF_ENDPOINT", "https://hf-mirror.com")
@@ -642,5 +642,5 @@ async def delete_history_entry(entry_id: str):
 # ──────────────────────────────────────────────────────────────────────────────
 
 if __name__ == "__main__":
-    threading.Timer(1.0, lambda: webbrowser.open("http://localhost:8000")).start()
-    uvicorn.run(app, host="127.0.0.1", port=8000)
+    threading.Timer(1.0, lambda: webbrowser.open("http://localhost:8765")).start()
+    uvicorn.run(app, host="127.0.0.1", port=8765)

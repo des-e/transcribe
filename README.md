@@ -91,7 +91,7 @@ bash ~/transcribe/start.sh
 - **ffmpeg** — для видеофайлов
 - **Модель Whisper medium** (~1.5 GB, скачивается один раз)
 
-**Шаг 4.** Открой браузер: [http://localhost:8000](http://localhost:8000)
+**Шаг 4.** Открой браузер: [http://localhost:8765](http://localhost:8765)
 
 ---
 
@@ -124,7 +124,7 @@ git clone https://github.com/des-e/transcribe.git $env:USERPROFILE\transcribe
 > ```
 > После установки перезапусти `start.bat`.
 
-**Шаг 4.** Открой браузер: [http://localhost:8000](http://localhost:8000)
+**Шаг 4.** Открой браузер: [http://localhost:8765](http://localhost:8765)
 
 ---
 

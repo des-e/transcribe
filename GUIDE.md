@@ -96,9 +96,9 @@ xattr -cr ~/transcribe/Transcribe.app
 bash ~/transcribe/make_app.sh
 ```
 
-**Порт 8000 занят**
+**Порт 8765 занят**
 ```bash
-kill -9 $(lsof -t -i :8000) 2>/dev/null
+kill -9 $(lsof -t -i :8765) 2>/dev/null
 ```
 
 **ffmpeg не установлен — видеофайлы не работают**
@@ -186,9 +186,9 @@ cd C:\transcribe
 start.bat
 ```
 
-**Порт 8000 занят**
+**Порт 8765 занят**
 ```
-netstat -ano | findstr :8000
+netstat -ano | findstr :8765
 taskkill /PID <номер> /F
 ```
 
