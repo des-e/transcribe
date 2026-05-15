@@ -7,6 +7,7 @@
 #   "python-multipart>=0.0.9",
 #   "mlx-whisper>=0.4.1; sys_platform == 'darwin' and platform_machine == 'arm64'",
 #   "imageio-ffmpeg>=0.4.9",
+#   "python-dotenv>=1.0.0",
 # ]
 # ///
 """
@@ -20,6 +21,8 @@
 Откроется: http://localhost:8765
 """
 import os
+from dotenv import load_dotenv
+load_dotenv()
 os.environ.setdefault("HF_ENDPOINT", "https://hf-mirror.com")
 os.environ.setdefault("HF_HUB_VERBOSITY", "warning")
 os.environ.setdefault("TOKENIZERS_PARALLELISM", "false")
@@ -79,6 +82,8 @@ HISTORY_DIR.mkdir(exist_ok=True)
 
 AUDIO_EXTENSIONS = {".mp3", ".m4a", ".wav", ".ogg", ".aac", ".flac", ".wma", ".opus"}
 
+SUMMARY_API_URL = os.environ.get("SUMMARY_API_URL", "http://193.222.97.61:8001")
+
 MAX_UPLOAD_MB = 4096  # 4 GB
 
 # Кеш faster-whisper модели (только на не-Apple-Silicon)
@@ -134,6 +139,11 @@ async def index():
 @app.get("/info")
 async def info():
     return JSONResponse({"backend": "mlx" if IS_APPLE_SILICON else "cpu"})
+
+
+@app.get("/config")
+async def config():
+    return JSONResponse({"summary_api_url": SUMMARY_API_URL})
 
 
 # ──────────────────────────────────────────────────────────────────────────────

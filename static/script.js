@@ -643,8 +643,10 @@ async function deleteHistoryEntry(id, btn) {
 }
 
 // ── Analysis: auth ─────────────────────────────────────────────────────────
-const SUMMARY_API = 'http://193.222.97.61:8001';
+let SUMMARY_API = 'http://193.222.97.61:8001'; // fallback, перезаписывается из /config
 const SUMMARY_HEADERS = {};
+
+fetch('/config').then(r => r.json()).then(cfg => { SUMMARY_API = cfg.summary_api_url; }).catch(() => {});
 let anUserKey  = localStorage.getItem('an_user_key')  || '';
 let anUserName = localStorage.getItem('an_user_name') || '';
 let anOptions  = {
