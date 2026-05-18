@@ -36,7 +36,12 @@
 
 ---
 
-## Changelog — last update 15.05.2026
+## Changelog — last update 18.05.2026
+
+### hotfix 18.05.2026
+
+- Обновлён fallback-адрес summarize-api в `app.py` и `script.js`: `193.222.97.61` → `91.207.74.176`
+- Пользователи без `.env` теперь автоматически попадают на новый сервер
 
 ### v0.20
 
