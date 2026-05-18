@@ -84,6 +84,17 @@ AUDIO_EXTENSIONS = {".mp3", ".m4a", ".wav", ".ogg", ".aac", ".flac", ".wma", ".o
 
 SUMMARY_API_URL = os.environ.get("SUMMARY_API_URL", "http://91.207.74.176:8001")
 
+def _git_hash() -> str:
+    try:
+        return subprocess.run(
+            ["git", "rev-parse", "--short", "HEAD"],
+            capture_output=True, text=True, timeout=3
+        ).stdout.strip() or "dev"
+    except Exception:
+        return "dev"
+
+GIT_HASH = _git_hash()
+
 MAX_UPLOAD_MB = 4096  # 4 GB
 
 # Кеш faster-whisper модели (только на не-Apple-Silicon)
@@ -133,7 +144,10 @@ app.mount("/static", StaticFiles(directory=str(Path(__file__).parent / "static")
 
 @app.get("/", response_class=HTMLResponse)
 async def index():
-    return (TEMPLATES_DIR / "index.html").read_text(encoding="utf-8")
+    html = (TEMPLATES_DIR / "index.html").read_text(encoding="utf-8")
+    html = html.replace('/static/script.js"', f'/static/script.js?v={GIT_HASH}"')
+    html = html.replace('/static/style.css"', f'/static/style.css?v={GIT_HASH}"')
+    return html
 
 
 @app.get("/info")
