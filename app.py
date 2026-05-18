@@ -82,7 +82,7 @@ HISTORY_DIR.mkdir(exist_ok=True)
 
 AUDIO_EXTENSIONS = {".mp3", ".m4a", ".wav", ".ogg", ".aac", ".flac", ".wma", ".opus"}
 
-SUMMARY_API_URL = os.environ.get("SUMMARY_API_URL", "http://193.222.97.61:8001")
+SUMMARY_API_URL = os.environ.get("SUMMARY_API_URL", "http://91.207.74.176:8001")
 
 MAX_UPLOAD_MB = 4096  # 4 GB
 

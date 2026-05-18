@@ -643,7 +643,7 @@ async function deleteHistoryEntry(id, btn) {
 }
 
 // ── Analysis: auth ─────────────────────────────────────────────────────────
-let SUMMARY_API = 'http://193.222.97.61:8001'; // fallback, перезаписывается из /config
+let SUMMARY_API = 'http://91.207.74.176:8001'; // fallback, перезаписывается из /config
 const SUMMARY_HEADERS = {};
 
 fetch('/config').then(r => r.json()).then(cfg => { SUMMARY_API = cfg.summary_api_url; }).catch(() => {});
