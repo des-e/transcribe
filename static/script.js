@@ -553,8 +553,8 @@ function toggleTheme() {
 }
 
 // ── View switching ─────────────────────────────────────────────────────────
-const NAV_ACTIVE   = 'text-primary bg-surface/50 border-l-2 border-accent';
-const NAV_INACTIVE = 'text-muted/50 border-l-2 border-transparent hover:text-primary hover:bg-surface/30';
+const NAV_ACTIVE   = 'text-accent bg-accent/10';
+const NAV_INACTIVE = 'text-muted hover:text-primary hover:bg-surface/50 transition-all';
 
 const VIEWS = ['transcribe', 'history', 'analysis'];
 
@@ -563,7 +563,7 @@ function showView(name) {
     document.getElementById(`view-${v}`).classList.toggle('hidden', v !== name);
     const nav  = document.getElementById(`nav-${v}`);
     const icon = nav.querySelector('.material-symbols-outlined');
-    nav.className = `flex items-center gap-3 py-2.5 px-3 rounded text-sm font-semibold transition-all ${v === name ? NAV_ACTIVE : NAV_INACTIVE}`;
+    nav.className = `flex items-center gap-2.5 py-2 px-3 rounded text-sm font-semibold ${v === name ? NAV_ACTIVE : NAV_INACTIVE}`;
     icon.classList.toggle('text-accent', v === name);
   });
 
@@ -984,8 +984,11 @@ renderLangs();
 
 (function () {
   const saved = localStorage.getItem('theme');
-  if (saved === 'light') {
-    document.documentElement.classList.replace('dark', 'light');
+  if (saved === 'dark') {
+    document.documentElement.classList.replace('light', 'dark');
+    document.getElementById('theme-icon').textContent = 'light_mode';
+    document.getElementById('favicon').href = '/static/favicon.svg';
+  } else {
     document.getElementById('theme-icon').textContent = 'dark_mode';
     document.getElementById('favicon').href = '/static/favicon-light.svg';
   }
