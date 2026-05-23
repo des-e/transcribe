@@ -9,13 +9,13 @@ html.dark {
   --color-surface: 28 33 31;
 }
 html.light {
-  --color-bg:      250 249 247;
-  --color-sidebar: 244 244 241;
-  --color-accent:  95 94 94;
-  --color-primary: 47 51 49;
-  --color-muted:   92 96 93;
-  --color-border:  175 179 176;
-  --color-surface: 237 238 235;
+  --color-bg:      249 249 248;
+  --color-sidebar: 240 240 238;
+  --color-accent:  106 106 104;
+  --color-primary: 15 15 15;
+  --color-muted:   160 160 158;
+  --color-border:  226 226 224;
+  --color-surface: 255 255 255;
 }
 body { background: rgb(var(--color-bg)); color: rgb(var(--color-primary)); font-family: 'Epilogue', sans-serif; transition: background .2s, color .2s; }
 .material-symbols-outlined {
