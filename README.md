@@ -36,7 +36,13 @@
 
 ---
 
-## Changelog — last update 18.05.2026
+## Changelog — last update 23.05.2026
+
+### redesign 23.05.2026
+- Новая типографика: Plus Jakarta Sans + JetBrains Mono для таймстампов
+- Палитра Asphalt (#302f2c) / Paper (#efede3) — тёплый монохром вместо серо-зелёного
+- Светлая тема по умолчанию (тёмная — через переключатель)
+- Pill-навигация в сайдбаре, обновлённый логотип, чище empty state и drop zone
 
 ### hotfix 18.05.2026
 
