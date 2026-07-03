@@ -36,7 +36,11 @@
 
 ---
 
-## Changelog — last update 23.05.2026
+## Changelog — last update 03.07.2026
+
+### infra 03.07.2026
+- Сервер суммаризации переехал на новый VPS; адрес по умолчанию теперь домен `https://eliseevdenis.ru/summarize` (вместо сырого IP)
+- Обновите `SUMMARY_API_URL` в `.env` (или удалите override — домен теперь дефолт): при следующих переездах адрес меняться не будет
 
 ### redesign 23.05.2026
 - Новая типографика: Plus Jakarta Sans + JetBrains Mono для таймстампов

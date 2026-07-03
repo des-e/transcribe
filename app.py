@@ -82,7 +82,7 @@ HISTORY_DIR.mkdir(exist_ok=True)
 
 AUDIO_EXTENSIONS = {".mp3", ".m4a", ".wav", ".ogg", ".aac", ".flac", ".wma", ".opus"}
 
-SUMMARY_API_URL = os.environ.get("SUMMARY_API_URL", "http://91.207.74.176:8001")
+SUMMARY_API_URL = os.environ.get("SUMMARY_API_URL", "https://eliseevdenis.ru/summarize")
 
 def _git_hash() -> str:
     try:
