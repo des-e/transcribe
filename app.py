@@ -82,7 +82,17 @@ HISTORY_DIR.mkdir(exist_ok=True)
 
 AUDIO_EXTENSIONS = {".mp3", ".m4a", ".wav", ".ogg", ".aac", ".flac", ".wma", ".opus"}
 
-SUMMARY_API_URL = os.environ.get("SUMMARY_API_URL", "https://eliseevdenis.ru/summarize")
+# Каноничный адрес сервиса суммаризации (стабильный домен).
+_SUMMARY_API_DEFAULT = "https://eliseevdenis.ru/summarize"
+# Адреса декоммиссированных серверов: если у пользователя в .env остался старый
+# сырой IP, игнорируем его и берём домен — иначе после гашения старого сервера
+# анализ у таких пользователей сломался бы, а .env у них не поправить.
+_SUMMARY_API_DEAD = ("91.207.74.176", "193.222.97.61")
+_summary_api_env = os.environ.get("SUMMARY_API_URL", "").strip()
+if not _summary_api_env or any(host in _summary_api_env for host in _SUMMARY_API_DEAD):
+    SUMMARY_API_URL = _SUMMARY_API_DEFAULT
+else:
+    SUMMARY_API_URL = _summary_api_env
 
 def _git_hash() -> str:
     try:
