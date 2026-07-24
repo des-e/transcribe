@@ -24,6 +24,16 @@ os.environ.setdefault("HF_ENDPOINT", "https://hf-mirror.com")
 # Репозиторий для автообновления
 _ro = "https://github.com/des-e/transcribe.git"
 
+# Git не должен спрашивать логин/пароль: репозиторий публичный, а любой запрос
+# credentials вешает запуск намертво (интерактивный промпт в терминале).
+_GIT_ENV = {
+    **os.environ,
+    "GIT_TERMINAL_PROMPT": "0",
+    "GIT_ASKPASS": "",
+    "SSH_ASKPASS": "",
+    "GCM_INTERACTIVE": "never",
+}
+
 
 # ──────────────────────────────────────────────────────────────────────────────
 # Найти uv (передаётся из shell-скрипта через UV_PATH)
@@ -94,7 +104,7 @@ def check_for_updates():
         # Fetch напрямую по URL — не трогаем remote origin (чтобы не сломать push)
         fetch = subprocess.run(
             ["git", "fetch", "--force", _ro, "master:refs/remotes/origin/master", "--quiet"],
-            cwd=HERE, capture_output=True, timeout=8,
+            cwd=HERE, capture_output=True, timeout=8, env=_GIT_ENV,
         )
         if fetch.returncode != 0:
             print("[~] Нет подключения — пропускаю проверку обновлений")
